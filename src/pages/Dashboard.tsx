@@ -25,12 +25,12 @@ export default function Dashboard() {
   const loadStats = async () => {
     try {
       const [clientsRes, animalsRes, recordsRes, appointmentsRes] = await Promise.all([
-        supabase.from('clients').select('id', { count: 'exact', head: true }),
-        supabase.from('animals').select('id', { count: 'exact', head: true }),
-        supabase.from('medical_records').select('id', { count: 'exact', head: true }),
+        supabase.from('clients').select('*', { count: 'exact', head: true }),
+        supabase.from('animals').select('*', { count: 'exact', head: true }),
+        supabase.from('medical_records').select('*', { count: 'exact', head: true }),
         supabase
           .from('appointments')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('status', 'Scheduled')
           .gte('appointment_date', new Date().toISOString().split('T')[0]),
       ]);

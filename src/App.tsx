@@ -33,19 +33,19 @@ function App() {
   const getPageTitle = () => {
     switch (currentPage) {
       case 'dashboard':
-        return 'Dashboard Overview';
+        return 'Visão Geral do Painel';
       case 'clients':
-        return 'Client Management';
+        return 'Gestão de Clientes';
       case 'animals':
-        return 'Animal Management';
+        return 'Gestão de Animais';
       case 'medical-records':
-        return 'Medical Records';
+        return 'Prontuários Médicos';
       case 'appointments':
-        return 'Appointments';
+        return 'Agendamentos';
       case 'calendar':
-        return 'Calendar View';
+        return 'Visualização em Calendário';
       default:
-        return 'Dashboard';
+        return 'Painel';
     }
   };
 
