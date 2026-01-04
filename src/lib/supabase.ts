@@ -59,3 +59,24 @@ export interface Appointment {
   created_at: string;
   updated_at: string;
 }
+
+export interface Microchip {
+  id: string;
+  codigo: string;
+  fabricante?: string;
+  data_implantacao?: string;
+  local_implantacao?: string;
+  veterinario_responsavel?: string;
+  status: 'ativo' | 'inativo' | 'perdido';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MicrochipHistorico {
+  id: string;
+  microchip_id: string;
+  acao: 'implantacao' | 'associacao' | 'desassociacao' | 'alteracao_status';
+  observacao?: string;
+  usuario_id?: string;
+  created_at: string;
+}
