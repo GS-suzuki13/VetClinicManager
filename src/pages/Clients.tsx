@@ -138,7 +138,7 @@ export default function Clients() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search clients by name, CPF, or email..."
+            placeholder="Procurar clientes por Nome, CPF, email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -149,7 +149,7 @@ export default function Clients() {
           className="ml-4 flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
         >
           <Plus className="w-5 h-5" />
-          Add Client
+          Adicionar Cliente
         </button>
       </div>
 
@@ -159,7 +159,7 @@ export default function Clients() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Name
+                  Nome
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   CPF
@@ -168,10 +168,10 @@ export default function Clients() {
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Phone
+                  Telefone
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Actions
+                  Ações
                 </th>
               </tr>
             </thead>
@@ -179,7 +179,7 @@ export default function Clients() {
               {filteredClients.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                    No clients found. Click "Add Client" to create your first client.
+                    Nenhum cliente encontrado. Clique em "Adicionar cliente" para criar seu primeiro cliente.
                   </td>
                 </tr>
               ) : (
@@ -215,119 +215,6 @@ export default function Clients() {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-800">
-                {editingClient ? 'Edit Client' : 'Add New Client'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CPF *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.cpf}
-                  onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="000.000.000-00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Date of Birth *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formData.date_of_birth}
-                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Residential Address *
-                </label>
-                <textarea
-                  required
-                  value={formData.residential_address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, residential_address: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
-                >
-                  {editingClient ? 'Update Client' : 'Create Client'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit, Trash2, X, Search, Clock } from 'lucide-react';
 import { supabase, Appointment, Animal, Client } from '../lib/supabase';
+import AppointmentModal from '../components/AppointmentsModal';
 
 type AppointmentWithDetails = Appointment & {
   clients: Client;
@@ -12,6 +14,7 @@ export default function Appointments() {
   const [clients, setClients] = useState<Client[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +33,21 @@ export default function Appointments() {
     loadClients();
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      openModal();
+
+      setSearchParams({});
+    }
+  }, [searchParams]);
+
+
+  const statusLabel = {
+    Scheduled: 'Agendado',
+    Completed: 'Concluído',
+    Cancelled: 'Cancelado',
+  } as const;
+
   const loadAppointments = async () => {
     try {
       const { data, error } = await supabase
@@ -41,7 +59,7 @@ export default function Appointments() {
       if (error) throw error;
       setAppointments(data || []);
     } catch (error) {
-      console.error('Error loading appointments:', error);
+      console.error('Erro ao carregar os agendamentos:', error);
     } finally {
       setLoading(false);
     }
@@ -57,7 +75,7 @@ export default function Appointments() {
       if (error) throw error;
       setClients(data || []);
     } catch (error) {
-      console.error('Error loading clients:', error);
+      console.error('Erro ao carregar clientes:', error);
     }
   };
 
@@ -72,7 +90,7 @@ export default function Appointments() {
       if (error) throw error;
       setAnimals(data || []);
     } catch (error) {
-      console.error('Error loading animals:', error);
+      console.error('Erro ao carregar animais:', error);
     }
   };
 
@@ -97,12 +115,12 @@ export default function Appointments() {
       closeModal();
     } catch (error) {
       console.error('Error saving appointment:', error);
-      alert('Error saving appointment. Please check the form and try again.');
+      alert('Ocorreu um erro ao salvar o agendamento. Verifique o formulário e tente novamente.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this appointment?')) {
+    if (!confirm('Tem certeza de que deseja excluir este agendamento?')) {
       return;
     }
 
@@ -113,7 +131,7 @@ export default function Appointments() {
       loadAppointments();
     } catch (error) {
       console.error('Error deleting appointment:', error);
-      alert('Error deleting appointment.');
+      alert('Erro ao excluir o agendamento.');
     }
   };
 
@@ -211,7 +229,7 @@ export default function Appointments() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search appointments..."
+              placeholder="Buscar agendamentos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -222,10 +240,10 @@ export default function Appointments() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            <option value="all">All Status</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="all">Todos os status</option>
+            <option value="Scheduled">Agendado</option>
+            <option value="Completed">Concluído</option>
+            <option value="Cancelled">Cancelado</option>
           </select>
         </div>
         <button
@@ -233,14 +251,14 @@ export default function Appointments() {
           className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium whitespace-nowrap"
         >
           <Plus className="w-5 h-5" />
-          New Appointment
+          Novo Agendamento
         </button>
       </div>
 
       <div className="space-y-4">
         {filteredAppointments.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
-            No appointments found. Click "New Appointment" to schedule one.
+            Não foram encontrados agendamentos. Clique em "Novo agendamento" para marcar um.
           </div>
         ) : (
           filteredAppointments.map((appointment) => (
@@ -259,19 +277,21 @@ export default function Appointments() {
                         {appointment.animals.name} - {appointment.clients.full_name}
                       </h3>
                       <p className="text-sm text-slate-600">
-                        {formatDate(appointment.appointment_date)} at {appointment.appointment_time}
+                        {formatDate(appointment.appointment_date)} às {appointment.appointment_time.substring(0, 5)}
                       </p>
                     </div>
                   </div>
 
                   <div className="ml-14">
                     <p className="text-sm text-slate-700 mb-2">
-                      <span className="font-medium">Reason: </span>
+                      <span className="font-medium">Motivo: </span>
                       {appointment.reason_for_visit}
                     </p>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                      {appointment.status}
-                    </span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}
+                      >
+                        {statusLabel[appointment.status]}
+                      </span>
                   </div>
                 </div>
 
@@ -295,136 +315,18 @@ export default function Appointments() {
         )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-800">
-                {editingAppointment ? 'Edit Appointment' : 'New Appointment'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <AppointmentModal
+        open={showModal}
+        onClose={closeModal}
+        onSubmit={handleSubmit}
+        formData={formData}
+        setFormData={setFormData}
+        clients={clients}
+        animals={animals}
+        editing={!!editingAppointment}
+        onClientChange={handleClientChange}
+      />
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Client *</label>
-                <select
-                  required
-                  value={formData.client_id}
-                  onChange={(e) => handleClientChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Animal *</label>
-                <select
-                  required
-                  value={formData.animal_id}
-                  onChange={(e) => setFormData({ ...formData, animal_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  disabled={!formData.client_id}
-                >
-                  <option value="">Select an animal</option>
-                  {animals.map((animal) => (
-                    <option key={animal.id} value={animal.id}>
-                      {animal.name} ({animal.species})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.appointment_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, appointment_date: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Time *</label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.appointment_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, appointment_time: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Reason for Visit *
-                </label>
-                <textarea
-                  required
-                  value={formData.reason_for_visit}
-                  onChange={(e) => setFormData({ ...formData, reason_for_visit: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Status *</label>
-                <select
-                  required
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as 'Scheduled' | 'Completed' | 'Cancelled',
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="Scheduled">Scheduled</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
-                >
-                  {editingAppointment ? 'Update Appointment' : 'Schedule Appointment'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, X, Search, FileText } from 'lucide-react';
 import { supabase, Animal, Client } from '../lib/supabase';
+import AnimalsModal from '../components/AnimalsModal';
 
 type AnimalWithClient = Animal & { clients: Client };
 
@@ -11,6 +12,7 @@ export default function Animals() {
   const [showModal, setShowModal] = useState(false);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showBreeds, setShowBreeds] = useState(false);
   const [formData, setFormData] = useState({
     client_id: '',
     name: '',
@@ -82,7 +84,7 @@ export default function Animals() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this animal? This will also delete all associated medical records.')) {
+    if (!confirm('Tem certeza de que deseja excluir este animal? Isso também excluirá todos os registros médicos associados.')) {
       return;
     }
 
@@ -160,7 +162,7 @@ export default function Animals() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search animals by name, breed, or owner..."
+            placeholder="Procure animais por nome, raça ou dono..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -171,7 +173,7 @@ export default function Animals() {
           className="ml-4 flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
         >
           <Plus className="w-5 h-5" />
-          Add Animal
+          Adicionar Animal
         </button>
       </div>
 
@@ -181,22 +183,22 @@ export default function Animals() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Name
+                  Nome
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Species
+                  Espécie
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Breed
+                  Raça
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Age
+                  Idade
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Owner
+                  Dono
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Actions
+                  Ações
                 </th>
               </tr>
             </thead>
@@ -204,7 +206,7 @@ export default function Animals() {
               {filteredAnimals.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    No animals found. Click "Add Animal" to register your first pet.
+                    Nenhum animal encontrado. Clique em "Adicionar animal" para registrar seu primeiro animal de estimação.
                   </td>
                 </tr>
               ) : (
@@ -221,11 +223,11 @@ export default function Animals() {
                             : 'bg-purple-100 text-purple-700'
                         }`}
                       >
-                        {animal.species}
+                        {animal.species === 'Dog' ? 'Cachorro' : 'Gato'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{animal.breed}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{animal.age} years</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{animal.age} anos</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {animal.clients.full_name}
                     </td>
@@ -259,141 +261,18 @@ export default function Animals() {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-800">
-                {editingAnimal ? 'Edit Animal' : 'Add New Animal'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Owner *</label>
-                <select
-                  required
-                  value={formData.client_id}
-                  onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">Select an owner</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Species *</label>
-                <select
-                  required
-                  value={formData.species}
-                  onChange={(e) =>
-                    setFormData({ ...formData, species: e.target.value as 'Dog' | 'Cat' })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="Dog">Dog</option>
-                  <option value="Cat">Cat</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Breed *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.breed}
-                  onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Age *</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.age}
-                    onChange={(e) =>
-                      setFormData({ ...formData, age: parseInt(e.target.value) || 0 })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Date of Birth *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Weight (kg) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  min="0"
-                  value={formData.weight}
-                  onChange={(e) =>
-                    setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
-                >
-                  {editingAnimal ? 'Update Animal' : 'Register Animal'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AnimalsModal
+        showModal={showModal}
+        editingAnimal={editingAnimal}
+        clients={clients}
+        formData={formData}
+        setFormData={setFormData}
+        handleSubmit={handleSubmit}
+        closeModal={closeModal}
+        showBreeds={showBreeds}
+        setShowBreeds={setShowBreeds}
+      />
+      
     </div>
   );
 }
