@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Users, Dog, FileText, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+import { useAppointmentsModal } from '../context/AppointmentsModalContext';
+import { useClientsModal } from '../context/ClientsModalContext';
+import { useAnimalsModal } from '../context/AnimalsModalContext.tsx';
+
 interface Stats {
   totalClients: number;
   totalAnimals: number;
@@ -16,7 +20,12 @@ export default function Dashboard() {
     totalRecords: 0,
     upcomingAppointments: 0,
   });
+
   const [loading, setLoading] = useState(true);
+
+  const { openModal: openAppointmentsModal } = useAppointmentsModal();
+  const { openModal: openClientsModal } = useClientsModal();
+  const { openModal: openAnimalsModal } = useAnimalsModal();
 
   useEffect(() => {
     loadStats();
@@ -24,16 +33,19 @@ export default function Dashboard() {
 
   const loadStats = async () => {
     try {
-      const [clientsRes, animalsRes, recordsRes, appointmentsRes] = await Promise.all([
-        supabase.from('clients').select('*', { count: 'exact', head: true }),
-        supabase.from('animals').select('*', { count: 'exact', head: true }),
-        supabase.from('medical_records').select('*', { count: 'exact', head: true }),
-        supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'Scheduled')
-          .gte('appointment_date', new Date().toISOString().split('T')[0]),
-      ]);
+      const [clientsRes, animalsRes, recordsRes, appointmentsRes] =
+        await Promise.all([
+          supabase.from('clients').select('*', { count: 'exact', head: true }),
+          supabase.from('animals').select('*', { count: 'exact', head: true }),
+          supabase
+            .from('medical_records')
+            .select('*', { count: 'exact', head: true }),
+          supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'Scheduled')
+            .gte('appointment_date', new Date().toISOString().split('T')[0]),
+        ]);
 
       setStats({
         totalClients: clientsRes.count || 0,
@@ -42,7 +54,7 @@ export default function Dashboard() {
         upcomingAppointments: appointmentsRes.count || 0,
       });
     } catch (error) {
-      console.error('Error loading stats:', error);
+      console.error('Erro ao carregar estatísticas:', error);
     } finally {
       setLoading(false);
     }
@@ -50,28 +62,28 @@ export default function Dashboard() {
 
   const cards = [
     {
-      title: 'Total Clients',
+      title: 'Total de Clientes',
       value: stats.totalClients,
       icon: Users,
       color: 'bg-blue-500',
       bgLight: 'bg-blue-50',
     },
     {
-      title: 'Total Animals',
+      title: 'Total de Animais',
       value: stats.totalAnimals,
       icon: Dog,
       color: 'bg-emerald-500',
       bgLight: 'bg-emerald-50',
     },
     {
-      title: 'Medical Records',
+      title: 'Registros Médicos',
       value: stats.totalRecords,
       icon: FileText,
       color: 'bg-purple-500',
       bgLight: 'bg-purple-50',
     },
     {
-      title: 'Upcoming Appointments',
+      title: 'Consultas Futuras',
       value: stats.upcomingAppointments,
       icon: Calendar,
       color: 'bg-orange-500',
@@ -82,20 +94,18 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
       </div>
     );
   }
 
   return (
     <div>
-      <div className="mb-8">
-        <p className="text-slate-600">Welcome to the Veterinary Clinic Management System</p>
-      </div>
-
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card) => {
           const Icon = card.icon;
+
           return (
             <div
               key={card.title}
@@ -103,11 +113,20 @@ export default function Dashboard() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600 mb-1">{card.title}</p>
-                  <p className="text-3xl font-bold text-slate-800">{card.value}</p>
+                  <p className="text-sm font-medium text-slate-600 mb-1">
+                    {card.title}
+                  </p>
+                  <p className="text-3xl font-bold text-slate-800">
+                    {card.value}
+                  </p>
                 </div>
                 <div className={`${card.bgLight} p-3 rounded-lg`}>
-                  <Icon className={`w-6 h-6 ${card.color.replace('bg-', 'text-')}`} />
+                  <Icon
+                    className={`w-6 h-6 ${card.color.replace(
+                      'bg-',
+                      'text-'
+                    )}`}
+                  />
                 </div>
               </div>
             </div>
@@ -115,18 +134,34 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* Ações rápidas */}
       <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+          Ações Rápidas
+        </h3>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium">
-            Add New Client
+          <button
+            onClick={() => openClientsModal()}
+            className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
+          >
+            Adicionar Cliente
           </button>
-          <button className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
-            Register Animal
+
+          <button
+            onClick={() => openAnimalsModal()}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+          >
+            Adicionar Animal
           </button>
-          <button className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
-            Schedule Appointment
+
+          <button
+            onClick={() => openAppointmentsModal()}
+            className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+          >
+            Agendar Consulta
           </button>
+
         </div>
       </div>
     </div>

@@ -175,7 +175,7 @@ export default function MedicalRecords() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search by animal, owner, diagnosis, or vet..."
+            placeholder="Pesquise por animal, dono ou diagnóstico..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -186,14 +186,14 @@ export default function MedicalRecords() {
           className="ml-4 flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
         >
           <Plus className="w-5 h-5" />
-          Add Record
+          Adicionar Registro
         </button>
       </div>
 
       <div className="space-y-4">
         {filteredRecords.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
-            No medical records found. Click "Add Record" to create the first entry.
+            Nenhum registro médico encontrado. Clique em "Adicionar Registro" para criar o primeiro registro.
           </div>
         ) : (
           filteredRecords.map((record) => (
@@ -207,7 +207,7 @@ export default function MedicalRecords() {
                     {record.animals.name} ({record.animals.species})
                   </h3>
                   <p className="text-sm text-slate-600">
-                    Owner: {record.animals.clients.full_name}
+                    Dono: {record.animals.clients.full_name}
                   </p>
                   <p className="text-sm text-slate-500 mt-1">
                     {formatDate(record.consultation_date)} • Dr. {record.veterinarian_name}
@@ -231,22 +231,22 @@ export default function MedicalRecords() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-1">Symptoms</p>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Sintomas</p>
                   <p className="text-sm text-slate-600">{record.symptoms}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-1">Diagnosis</p>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Diagnóstico</p>
                   <p className="text-sm text-slate-600">{record.diagnosis}</p>
                 </div>
                 {record.procedures && (
                   <div>
-                    <p className="text-sm font-medium text-slate-700 mb-1">Procedures</p>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Procedimentos</p>
                     <p className="text-sm text-slate-600">{record.procedures}</p>
                   </div>
                 )}
                 {record.prescribed_medication && (
                   <div>
-                    <p className="text-sm font-medium text-slate-700 mb-1">Medication</p>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Medicamento</p>
                     <p className="text-sm text-slate-600">{record.prescribed_medication}</p>
                   </div>
                 )}
@@ -254,7 +254,7 @@ export default function MedicalRecords() {
 
               {record.observations && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
-                  <p className="text-sm font-medium text-slate-700 mb-1">Observations</p>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Observações</p>
                   <p className="text-sm text-slate-600">{record.observations}</p>
                 </div>
               )}
@@ -268,7 +268,7 @@ export default function MedicalRecords() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-slate-200">
               <h3 className="text-xl font-semibold text-slate-800">
-                {editingRecord ? 'Edit Medical Record' : 'Add New Medical Record'}
+                {editingRecord ? 'Editar Prontuário' : 'Adicionar Novo Prontuário'}
               </h3>
               <button
                 onClick={closeModal}
@@ -287,10 +287,10 @@ export default function MedicalRecords() {
                   onChange={(e) => setFormData({ ...formData, animal_id: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="">Select an animal</option>
+                  <option value="">Selecione o animal</option>
                   {animals.map((animal) => (
                     <option key={animal.id} value={animal.id}>
-                      {animal.name} - {animal.species} (Owner: {animal.clients.full_name})
+                      {animal.name} - {animal.species} (Dono: {animal.clients.full_name})
                     </option>
                   ))}
                 </select>
@@ -299,7 +299,7 @@ export default function MedicalRecords() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Consultation Date *
+                    Data da Consulta *
                   </label>
                   <input
                     type="date"
@@ -314,7 +314,7 @@ export default function MedicalRecords() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Veterinarian Name *
+                    Nome do(a) Veterinário(a) *
                   </label>
                   <input
                     type="text"
@@ -329,7 +329,7 @@ export default function MedicalRecords() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Symptoms *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Sintomas *</label>
                 <textarea
                   required
                   value={formData.symptoms}
@@ -341,7 +341,7 @@ export default function MedicalRecords() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Diagnosis *
+                  Diagnóstico *
                 </label>
                 <textarea
                   required
@@ -353,7 +353,7 @@ export default function MedicalRecords() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Procedures</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Procedimentos</label>
                 <textarea
                   value={formData.procedures}
                   onChange={(e) => setFormData({ ...formData, procedures: e.target.value })}
@@ -364,7 +364,7 @@ export default function MedicalRecords() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Prescribed Medication
+                  Prescrição Médica
                 </label>
                 <textarea
                   value={formData.prescribed_medication}
@@ -378,7 +378,7 @@ export default function MedicalRecords() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Observations
+                  Observação
                 </label>
                 <textarea
                   value={formData.observations}
@@ -393,14 +393,14 @@ export default function MedicalRecords() {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
                 >
-                  {editingRecord ? 'Update Record' : 'Create Record'}
+                  {editingRecord ? 'Atualizar' : 'Criar Prontuário'}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
                   className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
                 >
-                  Cancel
+                  Cancelar
                 </button>
               </div>
             </form>
