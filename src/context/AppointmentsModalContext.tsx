@@ -33,7 +33,12 @@ export function AppointmentsModalProvider({
 
   return (
     <AppointmentsModalContext.Provider
-      value={{ isOpen, editingAppointment, openModal, closeModal }}
+      value={{
+        isOpen,
+        editingAppointment,
+        openModal,
+        closeModal,
+      }}
     >
       {children}
     </AppointmentsModalContext.Provider>
