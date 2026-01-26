@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Users, Dog, FileText, Calendar } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Appointment, Animal, Client, supabase } from '../lib/supabase';
 
 import { useAppointmentsModal } from '../context/AppointmentsModalContext';
 import { useClientsModal } from '../context/ClientsModalContext';
 import { useAnimalsModal } from '../context/AnimalsModalContext.tsx';
+
+import CalendarPreview from '../components/CalendarPreview.tsx';
+
+type AppointmentWithDetails = Appointment & {
+  clients: Client;
+  animals: Animal;
+};
 
 interface Stats {
   totalClients: number;
@@ -13,7 +20,11 @@ interface Stats {
   upcomingAppointments: number;
 }
 
-export default function Dashboard() {
+export default function Dashboard({
+    onNavigate,
+  }: {
+    onNavigate: (page: string) => void;
+  }) {
   const [stats, setStats] = useState<Stats>({
     totalClients: 0,
     totalAnimals: 0,
@@ -22,14 +33,20 @@ export default function Dashboard() {
   });
 
   const [loading, setLoading] = useState(true);
-
-  const { openModal: openAppointmentsModal } = useAppointmentsModal();
+  
   const { openModal: openClientsModal } = useClientsModal();
   const { openModal: openAnimalsModal } = useAnimalsModal();
+  const { openModal: openAppointmentsModal, isOpen: isAppointmentsModalOpen } =
+  useAppointmentsModal();
+  const [selectedAppointment, setSelectedAppointment] =
+  useState<AppointmentWithDetails | null>(null);
 
-  useEffect(() => {
+
+useEffect(() => {
+  if (!isAppointmentsModalOpen) {
     loadStats();
-  }, []);
+  }
+}, [isAppointmentsModalOpen]);
 
   const loadStats = async () => {
     try {
@@ -132,6 +149,14 @@ export default function Dashboard() {
             </div>
           );
         })}
+      </div>
+      
+      {/* Preview Calendário*/}
+      <div className="mt-8">
+        <CalendarPreview
+          onOpenCalendar={() => onNavigate('calendar')}
+          onOpenAppointment={(appointment) => setSelectedAppointment(appointment)}
+        />
       </div>
 
       {/* Ações rápidas */}

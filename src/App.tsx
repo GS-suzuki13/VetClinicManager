@@ -21,7 +21,7 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentPage} />;
       case 'clients':
         return <Clients />;
       case 'animals':
@@ -33,7 +33,7 @@ function App() {
       case 'calendar':
         return <Calendar />;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentPage} />;
     }
   };
 
