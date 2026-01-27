@@ -13,6 +13,8 @@ import Calendar from './pages/Calendar';
 import AnimalsModalContainer from './containers/AnimalsModalContainer';
 import ClientsModalContainer from './containers/ClientsModalContainer';
 import AppointmentsModalContainer from './containers/AppointmentsModalContainer';
+import VaccinationModal from './components/VaccinationModal';
+import Vaccinations from './pages/Vaccinations';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -28,6 +30,8 @@ function App() {
         return <Animals />;
       case 'medical-records':
         return <MedicalRecords />;
+      case 'vaccinations':
+        return <Vaccinations />
       case 'appointments':
         return <Appointments />;
       case 'calendar':
@@ -47,6 +51,8 @@ function App() {
         return 'Gestão de Animais';
       case 'medical-records':
         return 'Prontuários Médicos';
+      case 'vaccinations':
+        return 'Gestão de Vacinas';
       case 'appointments':
         return 'Agendamentos';
       case 'calendar':

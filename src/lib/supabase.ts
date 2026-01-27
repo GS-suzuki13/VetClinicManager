@@ -80,3 +80,26 @@ export interface MicrochipHistorico {
   usuario_id?: string;
   created_at: string;
 }
+
+export interface Vaccination {
+  id: string;
+  animal_id: string;
+
+  vaccine_name: string;
+  vaccine_type?: string;
+  manufacturer?: string;
+
+  dose_number?: number;
+  total_doses?: number;
+
+  application_date: string;
+  next_dose_date?: string;
+
+  veterinarian_name?: string;
+  clinic_name?: string;
+
+  notes?: string;
+
+  created_at: string;
+  updated_at: string;
+}

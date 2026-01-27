@@ -7,7 +7,9 @@ import {
   Calendar,
   CalendarDays,
   Menu,
+  Syringe,
 } from 'lucide-react';
+
 
 interface SidebarProps {
   currentPage: string;
@@ -21,6 +23,7 @@ const menuItems = [
   { id: 'clients', label: 'Clientes', icon: Users },
   { id: 'animals', label: 'Animais', icon: Dog },
   { id: 'medical-records', label: 'Prontuários', icon: FileText },
+  { id: 'vaccinations', label: 'Vacinas', icon: Syringe },
   { id: 'appointments', label: 'Agendamentos', icon: CalendarDays },
   { id: 'calendar', label: 'Calendário', icon: Calendar },
 ];
@@ -93,7 +96,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       {!collapsed && (
         <div className="p-4 border-t border-slate-700">
           <div className="text-xs text-slate-400 text-center">
-            <p>© 2024 VetClinic</p>
+            <p>© 2026 Suzuki</p>
             <p className="mt-1">All rights reserved</p>
           </div>
         </div>
