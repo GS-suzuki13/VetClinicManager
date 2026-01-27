@@ -2,11 +2,17 @@ import { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, X, Search, FileText } from 'lucide-react';
 import { supabase, Animal, Client } from '../lib/supabase';
 import AnimalsModal from '../components/AnimalsModal';
+import AnimalProfileModal from '../components/AnimalProfileModal';
 
 type AnimalWithClient = Animal & { clients: Client };
 
 export default function Animals() {
   const [animals, setAnimals] = useState<AnimalWithClient[]>([]);
+  const [selectedAnimal, setSelectedAnimal] = useState<AnimalWithClient | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showVaccinesModal, setShowVaccinesModal] = useState(false);
+  const [showMedicalRecordsModal, setShowMedicalRecordsModal] = useState(false);
+  const [showAppointmentsModal, setShowAppointmentsModal] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -140,6 +146,23 @@ export default function Animals() {
     });
   };
 
+
+  const openVaccinesModal = () => setShowVaccinesModal(true);
+  const openMedicalRecordsModal = () => setShowMedicalRecordsModal(true);
+  const openAppointmentsModal = () => setShowAppointmentsModal(true);
+  const openAnimalProfile = (animal: AnimalWithClient) =>{
+    setSelectedAnimal(animal);
+    setShowProfileModal(true);
+  }
+  
+  const closeVaccinesModal = () => setShowVaccinesModal(false);
+  const closeMedicalRecordsModal = () => setShowMedicalRecordsModal(false);
+  const closeAppointmentsModal = () => setShowAppointmentsModal(false);
+  const closeAnimalProfile = () =>{
+    setSelectedAnimal(null);
+    setShowProfileModal(false);
+  }
+
   const filteredAnimals = animals.filter(
     (animal) =>
       animal.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -211,7 +234,11 @@ export default function Animals() {
                 </tr>
               ) : (
                 filteredAnimals.map((animal) => (
-                  <tr key={animal.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                      key={animal.id}
+                      onClick={() => openAnimalProfile(animal)}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                     <td className="px-6 py-4 text-sm font-medium text-slate-800">
                       {animal.name}
                     </td>
@@ -240,13 +267,19 @@ export default function Animals() {
                           <FileText className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openModal(animal)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                             openModal(animal)
+                            }}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(animal.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(animal.id)
+                          }}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -273,6 +306,50 @@ export default function Animals() {
         setShowBreeds={setShowBreeds}
       />
       
+      {showProfileModal && selectedAnimal && (
+        <div>
+          <AnimalProfileModal
+            animal={selectedAnimal}
+            onClose={closeAnimalProfile}
+            onOpenVaccines={openVaccinesModal}
+            onOpenMedicalRecords={openMedicalRecordsModal}
+            onOpenAppointments={openAppointmentsModal}
+          />
+        </div>
+      )}
+
+      {showVaccinesModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl">
+            <p className="font-medium">Modal de Vacinação (em breve)</p>
+            <button onClick={closeVaccinesModal} className="mt-4 text-emerald-600">
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showMedicalRecordsModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl">
+            <p className="font-medium">Modal de Prontuários (em breve)</p>
+            <button onClick={closeMedicalRecordsModal} className="mt-4 text-blue-600">
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showAppointmentsModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl">
+            <p className="font-medium">Modal de Agendamentos (em breve)</p>
+            <button onClick={closeAppointmentsModal} className="mt-4 text-purple-600">
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
