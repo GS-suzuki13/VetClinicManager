@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { supabase, Vaccination, Animal, Client } from '../lib/supabase';
 import VaccinationModal from '../components/VaccinationModal';
+import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 interface VaccinationWithAnimal extends Vaccination {
   animals: Animal & {
@@ -10,6 +11,7 @@ interface VaccinationWithAnimal extends Vaccination {
 }
 
 export default function Vaccinations() {
+  const canDelete = canDeleteClinicalData(useClinic().role);
   const [vaccinations, setVaccinations] = useState<VaccinationWithAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,12 +195,14 @@ export default function Vaccinations() {
                         <Pencil className="w-4 h-4" />
                       </button>
 
-                      <button
-                        onClick={() => handleDelete(vaccination.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(vaccination.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

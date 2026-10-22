@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "dev:local": "vite --mode localdb",
     "test:isolation": "node --test --test-concurrency=1 tests/*.test.mjs",
     "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor,mailpit",
     "db:reset": "supabase db reset",

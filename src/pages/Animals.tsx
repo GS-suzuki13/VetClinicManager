@@ -3,10 +3,12 @@ import { Plus, Edit, Trash2, X, Search, FileText } from 'lucide-react';
 import { supabase, Animal, Client } from '../lib/supabase';
 import AnimalsModal from '../components/AnimalsModal';
 import AnimalProfileModal from '../components/AnimalProfileModal';
+import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 type AnimalWithClient = Animal & { clients: Client };
 
 export default function Animals() {
+  const canDelete = canDeleteClinicalData(useClinic().role);
   const [animals, setAnimals] = useState<AnimalWithClient[]>([]);
   const [selectedAnimal, setSelectedAnimal] = useState<AnimalWithClient | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -275,15 +277,17 @@ export default function Animals() {
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(animal.id)
-                          }}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(animal.id)
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

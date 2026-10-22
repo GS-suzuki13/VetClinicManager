@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { supabase, MedicalRecord, Animal, Client } from '../lib/supabase';
 import MedicalRecordModal from '../components/MedicalRecordModal';
+import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 type MedicalRecordWithDetails = MedicalRecord & {
   animals: Animal & { clients: Client };
 };
 
 export default function MedicalRecordsPage() {
+  const canDelete = canDeleteClinicalData(useClinic().role);
   const [records, setRecords] = useState<MedicalRecordWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,9 +106,11 @@ export default function MedicalRecordsPage() {
                 <button onClick={() => openEdit(record)}>
                   <Edit className="w-4 h-4 text-blue-600" />
                 </button>
-                <button onClick={() => handleDelete(record.id)}>
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </button>
+                {canDelete && (
+                  <button onClick={() => handleDelete(record.id)}>
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
