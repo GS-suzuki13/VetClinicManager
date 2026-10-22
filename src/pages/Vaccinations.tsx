@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { supabase, Vaccination, Animal, Client } from '../lib/supabase';
+import { dbErrorMessage, formatDate } from '../lib/format';
 import VaccinationModal from '../components/VaccinationModal';
+import PageToolbar, { IconButton, PageLoader, tdClass, thClass } from '../components/PageToolbar';
 import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 interface VaccinationWithAnimal extends Vaccination {
-  animals: Animal & {
-    clients?: Client;
+  animals: Pick<Animal, 'id' | 'name' | 'species'> & {
+    clients?: Pick<Client, 'id' | 'full_name'>;
   };
 }
 
@@ -15,193 +17,95 @@ export default function Vaccinations() {
   const [vaccinations, setVaccinations] = useState<VaccinationWithAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [modal, setModal] = useState<{ vaccination: VaccinationWithAnimal | null } | null>(null);
 
-  const [selectedVaccination, setSelectedVaccination] =
-    useState<VaccinationWithAnimal | null>(null);
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const fetchVaccinations = async () => {
-    setLoading(true);
-
+  const fetchVaccinations = useCallback(async () => {
     const { data, error } = await supabase
       .from('animal_vaccinations')
-      .select(`
-        *,
-        animals (
-          id,
-          name,
-          species,
-          clients (
-            id,
-            full_name
-          )
-        )
-      `)
+      .select('*, animals (id, name, species, clients (id, full_name))')
       .order('application_date', { ascending: false });
-
-    if (!error && data) {
-      setVaccinations(data as VaccinationWithAnimal[]);
-    }
-
+    if (error) console.error('Erro ao carregar vacinações:', error);
+    setVaccinations((data as VaccinationWithAnimal[]) ?? []);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchVaccinations();
-  }, []);
-
-  const openNewVaccinationModal = () => {
-    setSelectedVaccination(null);
-    setIsModalOpen(true);
-  };
-
-  const openEditVaccinationModal = (vaccination: VaccinationWithAnimal) => {
-    setSelectedVaccination(vaccination);
-    setIsModalOpen(true);
-  };
+  }, [fetchVaccinations]);
 
   const handleDelete = async (id: string) => {
-    if (
-      !confirm('Tem certeza que deseja excluir este registro de vacinação?')
-    ) {
-      return;
-    }
-
-    await supabase.from('animal_vaccinations').delete().eq('id', id);
-    fetchVaccinations();
+    if (!confirm('Tem certeza que deseja excluir este registro de vacinação?')) return;
+    const { error } = await supabase.from('animal_vaccinations').delete().eq('id', id);
+    if (error) alert(dbErrorMessage(error, 'Erro ao excluir a vacinação.'));
+    else fetchVaccinations();
   };
 
-  const filteredVaccinations = vaccinations.filter((vaccination) => {
-    const animalName = vaccination.animals?.name?.toLowerCase() ?? '';
-    const vaccineName = vaccination.vaccine_name.toLowerCase();
-    const ownerName =
-      vaccination.animals?.clients?.full_name?.toLowerCase() ?? '';
+  const term = searchTerm.toLowerCase();
+  const filteredVaccinations = vaccinations.filter((v) =>
+    [v.animals?.name, v.vaccine_name, v.animals?.clients?.full_name].some((s) => s?.toLowerCase().includes(term))
+  );
 
-    return (
-      animalName.includes(searchTerm.toLowerCase()) ||
-      vaccineName.includes(searchTerm.toLowerCase()) ||
-      ownerName.includes(searchTerm.toLowerCase())
-    );
-  });
+  if (loading) return <PageLoader />;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
-      </div>
-    );
-  }
+  const editing = modal?.vaccination;
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Buscar por animal, vacina ou dono..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </div>
-
-        <button
-          onClick={openNewVaccinationModal}
-          className="ml-4 flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Nova Vacinação
-        </button>
-      </div>
+      <PageToolbar
+        search={searchTerm}
+        onSearch={setSearchTerm}
+        placeholder="Buscar por animal, vacina ou dono..."
+        actionLabel="Nova Vacinação"
+        onAction={() => setModal({ vaccination: null })}
+      />
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                  Animal
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                  Dono
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                  Vacina
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">
-                  Dose
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">
-                  Aplicação
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">
-                  Próxima
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                  Ações
-                </th>
+                <th className={thClass}>Animal</th>
+                <th className={`${thClass} hidden md:table-cell`}>Dono</th>
+                <th className={`${thClass} hidden sm:table-cell`}>Vacina</th>
+                <th className={`${thClass} hidden lg:table-cell text-center`}>Dose</th>
+                <th className={`${thClass} hidden md:table-cell text-center`}>Aplicação</th>
+                <th className={`${thClass} text-center`}>Próxima</th>
+                <th className={`${thClass} text-right`}>Ações</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-200">
               {filteredVaccinations.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-8 text-center text-slate-500"
-                  >
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                     Nenhuma vacinação encontrada
                   </td>
                 </tr>
               )}
 
               {filteredVaccinations.map((vaccination) => (
-                <tr
-                  key={vaccination.id}
-                  className="hover:bg-slate-50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm font-medium text-slate-800">
+                <tr key={vaccination.id} className="hover:bg-slate-50 transition-colors">
+                  <td className={`${tdClass} font-medium text-slate-800`}>
                     {vaccination.animals?.name}
+                    <span className="block sm:hidden text-xs font-normal text-slate-500">{vaccination.vaccine_name}</span>
                   </td>
-
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {vaccination.animals?.clients?.full_name ?? '-'}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {vaccination.vaccine_name}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-center text-slate-600">
+                  <td className={`${tdClass} text-slate-600 hidden md:table-cell`}>{vaccination.animals?.clients?.full_name ?? '-'}</td>
+                  <td className={`${tdClass} text-slate-600 hidden sm:table-cell`}>{vaccination.vaccine_name}</td>
+                  <td className={`${tdClass} text-center text-slate-600 hidden lg:table-cell`}>
                     {vaccination.dose_number ?? '-'}
+                    {vaccination.total_doses ? `/${vaccination.total_doses}` : ''}
                   </td>
-
-                  <td className="px-6 py-4 text-sm text-center text-slate-600">
-                    {vaccination.application_date}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-center text-slate-600">
-                    {vaccination.next_dose_date ?? '-'}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => openEditVaccinationModal(vaccination)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
+                  <td className={`${tdClass} text-center text-slate-600 hidden md:table-cell`}>{formatDate(vaccination.application_date)}</td>
+                  <td className={`${tdClass} text-center text-slate-600`}>{formatDate(vaccination.next_dose_date)}</td>
+                  <td className={tdClass}>
+                    <div className="flex justify-end gap-1">
+                      <IconButton tone="blue" title="Editar" onClick={() => setModal({ vaccination })}>
                         <Pencil className="w-4 h-4" />
-                      </button>
-
+                      </IconButton>
                       {canDelete && (
-                        <button
-                          onClick={() => handleDelete(vaccination.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
+                        <IconButton tone="red" title="Excluir" onClick={() => handleDelete(vaccination.id)}>
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </IconButton>
                       )}
                     </div>
                   </td>
@@ -212,10 +116,10 @@ export default function Vaccinations() {
         </div>
       </div>
 
-      {isModalOpen && (
+      {modal && (
         <VaccinationModal
-          vaccination={selectedVaccination}
-          onClose={() => setIsModalOpen(false)}
+          vaccination={editing ? { ...editing, clientId: editing.animals?.clients?.id } : null}
+          onClose={() => setModal(null)}
           onSaved={fetchVaccinations}
         />
       )}

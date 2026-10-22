@@ -1,64 +1,100 @@
-import { X } from 'lucide-react';
-import { Appointment, Animal, Client } from '../lib/supabase';
+import { FormEvent, useEffect, useState } from 'react';
+import { supabase, Appointment, Animal, Client } from '../lib/supabase';
+import { dbErrorMessage, speciesLabel, statusLabel } from '../lib/format';
+import { useAppointmentsModal } from '../context/AppointmentsModalContext';
+import Modal, { FormActions, FormError, fieldClass, labelClass } from './Modal';
 
-interface AppointmentModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  formData: {
-    client_id: string;
-    animal_id: string;
-    appointment_date: string;
-    appointment_time: string;
-    reason_for_visit: string;
-    status: 'Scheduled' | 'Completed' | 'Cancelled';
-  };
-  setFormData: React.Dispatch<React.SetStateAction<any>>;
-  clients: Client[];
-  animals: Animal[];
-  editing: boolean;
-  onClientChange: (clientId: string) => void;
+type AppointmentForm = Pick<
+  Appointment,
+  'client_id' | 'animal_id' | 'appointment_date' | 'appointment_time' | 'reason_for_visit' | 'status'
+>;
+
+const emptyForm: AppointmentForm = {
+  client_id: '',
+  animal_id: '',
+  appointment_date: '',
+  appointment_time: '',
+  reason_for_visit: '',
+  status: 'Scheduled',
+};
+
+export default function AppointmentsModal() {
+  const { isOpen, editingAppointment } = useAppointmentsModal();
+  if (!isOpen) return null;
+  return <AppointmentFormModal key={editingAppointment?.id ?? 'new'} editing={editingAppointment} />;
 }
 
-export default function AppointmentModal({
-  open,
-  onClose,
-  onSubmit,
-  formData,
-  setFormData,
-  clients,
-  animals,
-  editing,
-  onClientChange,
-}: AppointmentModalProps) {
-  if (!open) return null;
+function AppointmentFormModal({ editing }: { editing: Appointment | null }) {
+  const { closeModal, notifySaved } = useAppointmentsModal();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<AppointmentForm>(() =>
+    editing
+      ? {
+          client_id: editing.client_id,
+          animal_id: editing.animal_id,
+          appointment_date: editing.appointment_date,
+          appointment_time: editing.appointment_time.slice(0, 5),
+          reason_for_visit: editing.reason_for_visit,
+          status: editing.status,
+        }
+      : emptyForm
+  );
+
+  useEffect(() => {
+    supabase
+      .from('clients')
+      .select('*')
+      .order('full_name')
+      .then(({ data }) => setClients(data ?? []));
+  }, []);
+
+  useEffect(() => {
+    if (!formData.client_id) {
+      setAnimals([]);
+      return;
+    }
+    supabase
+      .from('animals')
+      .select('*')
+      .eq('client_id', formData.client_id)
+      .order('name')
+      .then(({ data }) => setAnimals(data ?? []));
+  }, [formData.client_id]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+
+    const { error } = editing
+      ? await supabase.from('appointments').update(formData).eq('id', editing.id)
+      : await supabase.from('appointments').insert(formData);
+
+    setBusy(false);
+    if (error) {
+      setError(dbErrorMessage(error, 'Não foi possível salvar o agendamento.'));
+      return;
+    }
+    notifySaved();
+    closeModal();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-800">
-            {editing ? 'Editar Agendamento' : 'Novo Agendamento'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal title={editing ? 'Editar Agendamento' : 'Novo Agendamento'} onClose={closeModal}>
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+        <FormError message={error} />
 
-        <form onSubmit={onSubmit} className="p-6 space-y-4">
-          {/* Cliente */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Cliente *
-            </label>
+            <label className={labelClass}>Cliente *</label>
             <select
               required
               value={formData.client_id}
-              onChange={(e) => onClientChange(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              onChange={(e) => setFormData({ ...formData, client_id: e.target.value, animal_id: '' })}
+              className={fieldClass}
             >
               <option value="">Selecione o cliente</option>
               {clients.map((client) => (
@@ -69,121 +105,77 @@ export default function AppointmentModal({
             </select>
           </div>
 
-          {/* Animal */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Animal *
-            </label>
+            <label className={labelClass}>Animal *</label>
             <select
               required
               disabled={!formData.client_id}
               value={formData.animal_id}
-              onChange={(e) =>
-                setFormData({ ...formData, animal_id: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              onChange={(e) => setFormData({ ...formData, animal_id: e.target.value })}
+              className={fieldClass}
             >
-              <option value="">Selecione o animal</option>
+              <option value="">{formData.client_id ? 'Selecione o animal' : 'Selecione o cliente primeiro'}</option>
               {animals.map((animal) => (
                 <option key={animal.id} value={animal.id}>
-                  {animal.name} ({animal.species})
+                  {animal.name} ({speciesLabel[animal.species]})
                 </option>
               ))}
             </select>
           </div>
+        </div>
 
-          {/* Data / Hora */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Data *
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.appointment_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, appointment_date: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Horário *
-              </label>
-              <input
-                type="time"
-                required
-                value={formData.appointment_time}
-                onChange={(e) =>
-                  setFormData({ ...formData, appointment_time: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          {/* Motivo */}
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Motivo da visita *
-            </label>
-            <textarea
+            <label className={labelClass}>Data *</label>
+            <input
+              type="date"
               required
-              rows={3}
-              value={formData.reason_for_visit}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  reason_for_visit: e.target.value,
-                })
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              value={formData.appointment_date}
+              onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
+              className={fieldClass}
             />
           </div>
-
-          {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status *
-            </label>
-            <select
+            <label className={labelClass}>Horário *</label>
+            <input
+              type="time"
               required
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  status: e.target.value as any,
-                })
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="Scheduled">Agendado</option>
-              <option value="Completed">Concluído</option>
-              <option value="Cancelled">Cancelado</option>
-            </select>
+              value={formData.appointment_time}
+              onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+              className={fieldClass}
+            />
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium"
-            >
-              {editing ? 'Atualizar Agendamento' : 'Agendar Consulta'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div>
+          <label className={labelClass}>Motivo da visita *</label>
+          <textarea
+            required
+            rows={3}
+            value={formData.reason_for_visit}
+            onChange={(e) => setFormData({ ...formData, reason_for_visit: e.target.value })}
+            className={fieldClass}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Status *</label>
+          <select
+            required
+            value={formData.status}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as Appointment['status'] })}
+            className={fieldClass}
+          >
+            {Object.entries(statusLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <FormActions submitLabel={editing ? 'Atualizar Agendamento' : 'Agendar Consulta'} onCancel={closeModal} busy={busy} />
+      </form>
+    </Modal>
   );
 }

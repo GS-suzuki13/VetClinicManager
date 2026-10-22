@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Edit, Trash2 } from 'lucide-react';
 import { supabase, MedicalRecord, Animal, Client } from '../lib/supabase';
+import { dbErrorMessage, formatDate, speciesLabel } from '../lib/format';
 import MedicalRecordModal from '../components/MedicalRecordModal';
+import PageToolbar, { IconButton, PageLoader } from '../components/PageToolbar';
 import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 type MedicalRecordWithDetails = MedicalRecord & {
@@ -14,102 +16,82 @@ export default function MedicalRecordsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] =
-    useState<MedicalRecordWithDetails | null>(null);
+  const [editingRecord, setEditingRecord] = useState<MedicalRecordWithDetails | null>(null);
 
-  useEffect(() => {
-    loadRecords();
-  }, []);
-
-  const loadRecords = async () => {
-    setLoading(true);
-    const { data } = await supabase
+  const loadRecords = useCallback(async () => {
+    const { data, error } = await supabase
       .from('medical_records')
       .select('*, animals(*, clients(*))')
       .order('consultation_date', { ascending: false });
-
-    setRecords(data || []);
+    if (error) console.error('Erro ao carregar prontuários:', error);
+    setRecords(data ?? []);
     setLoading(false);
-  };
+  }, []);
 
-  const openNew = () => {
-    setEditingRecord(null);
-    setModalOpen(true);
-  };
+  useEffect(() => {
+    loadRecords();
+  }, [loadRecords]);
 
-  const openEdit = (record: MedicalRecordWithDetails) => {
+  const openModal = (record: MedicalRecordWithDetails | null) => {
     setEditingRecord(record);
     setModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja excluir este prontuário?')) return;
-    await supabase.from('medical_records').delete().eq('id', id);
-    loadRecords();
+    const { error } = await supabase.from('medical_records').delete().eq('id', id);
+    if (error) alert(dbErrorMessage(error, 'Erro ao excluir o prontuário.'));
+    else loadRecords();
   };
 
+  const term = searchTerm.toLowerCase();
   const filteredRecords = records.filter(
-    (r) =>
-      r.animals.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.animals.clients.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (r) => r.animals.name.toLowerCase().includes(term) || r.animals.clients.full_name.toLowerCase().includes(term)
   );
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin h-12 w-12 rounded-full border-b-2 border-emerald-500" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoader />;
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input
-            placeholder="Buscar por animal ou dono..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg"
-          />
-        </div>
+      <PageToolbar
+        search={searchTerm}
+        onSearch={setSearchTerm}
+        placeholder="Buscar por animal ou dono..."
+        actionLabel="Adicionar Registro"
+        onAction={() => openModal(null)}
+      />
 
-        <button
-          onClick={openNew}
-          className="ml-4 flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg"
-        >
-          <Plus className="w-5 h-5" />
-          Adicionar Registro
-        </button>
-      </div>
-
-      {/* Cards */}
       <div className="space-y-4">
+        {filteredRecords.length === 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
+            Nenhum prontuário encontrado.
+          </div>
+        )}
+
         {filteredRecords.map((record) => (
-          <div
-            key={record.id}
-            className="bg-white p-6 rounded-xl border shadow-sm"
-          >
-            <div className="flex justify-between">
-              <div>
-                <h3 className="font-semibold text-lg">
-                  {record.animals.name} ({record.animals.species})
+          <div key={record.id} className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-lg text-slate-800">
+                  {record.animals.name} ({speciesLabel[record.animals.species]})
                 </h3>
                 <p className="text-sm text-slate-600">
-                  Dono: {record.animals.clients.full_name}
+                  Dono: {record.animals.clients.full_name} • {formatDate(record.consultation_date)} • {record.veterinarian_name}
+                </p>
+                <p className="text-sm text-slate-700 mt-2 break-words">
+                  <span className="font-medium">Diagnóstico: </span>
+                  {record.diagnosis}
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(record)}>
-                  <Edit className="w-4 h-4 text-blue-600" />
-                </button>
+              <div className="flex flex-col sm:flex-row gap-1 shrink-0">
+                <IconButton tone="blue" title="Editar" onClick={() => openModal(record)}>
+                  <Edit className="w-4 h-4" />
+                </IconButton>
                 {canDelete && (
-                  <button onClick={() => handleDelete(record.id)}>
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </button>
+                  <IconButton tone="red" title="Excluir" onClick={() => handleDelete(record.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </IconButton>
                 )}
               </div>
             </div>
@@ -117,13 +99,7 @@ export default function MedicalRecordsPage() {
         ))}
       </div>
 
-      {modalOpen && (
-        <MedicalRecordModal
-          record={editingRecord}
-          onClose={() => setModalOpen(false)}
-          onSaved={loadRecords}
-        />
-      )}
+      {modalOpen && <MedicalRecordModal record={editingRecord} onClose={() => setModalOpen(false)} onSaved={loadRecords} />}
     </div>
   );
 }
