@@ -97,6 +97,50 @@ export interface Appointment {
   updated_at: string;
 }
 
+export type MicrochipStatus = 'active' | 'inactive' | 'removed' | 'defective';
+
+export interface Microchip {
+  id: string;
+  clinic_id: string;
+  animal_id: string | null;
+  code: string;
+  manufacturer: string | null;
+  implanted_at: string | null;
+  implant_site: string | null;
+  implanted_by: string | null;
+  status: MicrochipStatus;
+  external_registry: string | null;
+  external_registry_id: string | null;
+  public_lookup: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MicrochipEventType =
+  | 'registered'
+  | 'linked'
+  | 'unlinked'
+  | 'status_changed'
+  | 'external_registry'
+  | 'code_changed'
+  | 'scanned'
+  | 'note';
+
+export interface MicrochipEvent {
+  id: string;
+  clinic_id: string;
+  microchip_id: string;
+  animal_id: string | null;
+  event_type: MicrochipEventType;
+  old_value: string | null;
+  new_value: string | null;
+  details: string | null;
+  performed_by: string | null;
+  performed_by_email: string | null;
+  created_at: string;
+}
+
 export interface Vaccination {
   id: string;
   clinic_id: string;

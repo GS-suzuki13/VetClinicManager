@@ -140,8 +140,26 @@ async function seedClinic(sb, clinicId, tag) {
       .select()
       .single()
   );
-  return { client, animal, record, vaccination, appointment };
+  // Mesmo número de chip nas duas clínicas: único por clínica, invisível entre elas.
+  const microchip = unwrap(
+    await sb
+      .from('microchips')
+      .insert({
+        clinic_id: clinicId,
+        animal_id: animal.id,
+        code: CHIP_CODE.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2-$3.'),
+        manufacturer: `Fabricante ${tag}`,
+        implanted_at: '2026-01-01',
+      })
+      .select()
+      .single()
+  );
+  return { client, animal, record, vaccination, appointment, microchip };
 }
+
+// Único por execução: rodadas anteriores no mesmo banco não interferem na busca entre clínicas.
+const CHIP_CODE = `982${String(Date.now()).slice(-12).padStart(12, '0')}`;
+const SPACED_CHIP_CODE = CHIP_CODE.replace(/(\d{3})(?=\d)/g, '$1 ');
 
 const TABLES = {
   clients: 'client',
@@ -149,6 +167,7 @@ const TABLES = {
   medical_records: 'record',
   animal_vaccinations: 'vaccination',
   appointments: 'appointment',
+  microchips: 'microchip',
 };
 
 let A, B, clinicA, clinicB, dataA, dataB;
@@ -168,7 +187,7 @@ before(async () => {
 
 test('anônimo não lê nenhuma tabela', async () => {
   const anon = newClient();
-  for (const table of [...Object.keys(TABLES), 'clinics', 'clinic_members']) {
+  for (const table of [...Object.keys(TABLES), 'microchip_events', 'clinics', 'clinic_members']) {
     const { data, error } = await anon.from(table).select('*');
     assert.ok(error, `${table}: esperado erro de permissão, veio ${JSON.stringify(data)}`);
     assert.equal(error.code, '42501', `${table}: ${error.message}`);
@@ -269,6 +288,7 @@ test('A não altera linhas de B (0 linhas afetadas e B intacto)', async () => {
       medical_records: { diagnosis: 'HACKED' },
       animal_vaccinations: { vaccine_name: 'HACKED' },
       appointments: { reason_for_visit: 'HACKED' },
+      microchips: { notes: 'HACKED' },
     }[table];
     const updated = unwrap(await A.sb.from(table).update(field).eq('id', dataB[key].id).select());
     assert.equal(updated.length, 0, `${table}: A alterou linha de B`);
@@ -494,4 +514,150 @@ test('token de B via REST direto não lê dados de A', async () => {
   });
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), []);
+});
+
+// ---------------------------------------------------------------------------
+// Microchips
+// ---------------------------------------------------------------------------
+
+test('microchip: código normalizado e validado', async () => {
+  assert.equal(dataA.microchip.code, CHIP_CODE, 'espaços/pontos/traços devem ser removidos');
+
+  for (const code of ['123', '98200012345678X', 'ZZZZZZZZZZ']) {
+    const { error } = await A.sb.from('microchips').insert({ clinic_id: clinicA.id, code });
+    assert.equal(error?.code, '23514', `${code}: ${error?.message}`);
+  }
+
+  // Formatos legados aceitos: FDX-A (10 hex) e AVID (9 dígitos).
+  for (const code of ['0a1b2c3d4e', '123456789']) {
+    const row = unwrap(await A.sb.from('microchips').insert({ clinic_id: clinicA.id, code }).select().single());
+    assert.equal(row.code, code.toUpperCase());
+  }
+});
+
+test('microchip: único por clínica e um chip ativo por animal', async () => {
+  const dup = await A.sb.from('microchips').insert({ clinic_id: clinicA.id, code: CHIP_CODE });
+  assert.equal(dup.error?.code, '23505', 'mesmo código duas vezes na clínica');
+
+  const second = await A.sb
+    .from('microchips')
+    .insert({ clinic_id: clinicA.id, animal_id: dataA.animal.id, code: '982000999999999' });
+  assert.equal(second.error?.code, '23505', 'segundo chip ativo no mesmo animal');
+});
+
+test('microchip: não vincula animal de outra clínica', async () => {
+  const { error } = await A.sb
+    .from('microchips')
+    .insert({ clinic_id: clinicA.id, animal_id: dataB.animal.id, code: '982000111111111' });
+  assert.equal(error?.code, '23503', error?.message);
+
+  const upd = await A.sb.from('microchips').update({ animal_id: dataB.animal.id }).eq('id', dataA.microchip.id);
+  assert.equal(upd.error?.code, '23503', upd.error?.message);
+});
+
+test('microchip: histórico automático registra cadastro, status e registro externo', async () => {
+  unwrap(
+    await A.sb
+      .from('microchips')
+      .update({ status: 'defective', external_registry: 'SinPatinhas', external_registry_id: 'SP-TESTE-1' })
+      .eq('id', dataA.microchip.id)
+  );
+  unwrap(await A.sb.from('microchips').update({ status: 'active' }).eq('id', dataA.microchip.id));
+
+  const events = unwrap(
+    await A.sb.from('microchip_events').select('*').eq('microchip_id', dataA.microchip.id).order('created_at')
+  );
+  const types = events.map((e) => e.event_type);
+  assert.ok(types.includes('registered'));
+  assert.ok(types.includes('external_registry'));
+  assert.equal(types.filter((t) => t === 'status_changed').length, 2);
+  const change = events.find((e) => e.event_type === 'status_changed');
+  assert.deepEqual([change.old_value, change.new_value], ['active', 'defective']);
+  assert.ok(events.every((e) => e.performed_by === A.userId && e.performed_by_email === A.email));
+});
+
+test('microchip: histórico é imutável e só aceita leituras/anotações manuais', async () => {
+  const forged = await A.sb.from('microchip_events').insert({
+    clinic_id: clinicA.id, microchip_id: dataA.microchip.id, event_type: 'registered',
+  });
+  assert.equal(forged.error?.code, '42501', 'evento automático não pode ser forjado');
+
+  // Autor forjado é substituído pelo usuário da sessão.
+  const scan = unwrap(
+    await A.sb
+      .from('microchip_events')
+      .insert({
+        clinic_id: clinicA.id, microchip_id: dataA.microchip.id, event_type: 'scanned',
+        details: 'Leitura na consulta', performed_by: B.userId, performed_by_email: 'falso@example.test',
+      })
+      .select()
+      .single()
+  );
+  assert.equal(scan.performed_by, A.userId);
+  assert.equal(scan.performed_by_email, A.email);
+
+  const upd = await A.sb.from('microchip_events').update({ details: 'HACKED' }).eq('id', scan.id);
+  assert.equal(upd.error?.code, '42501', 'histórico não pode ser alterado');
+  const del = await A.sb.from('microchip_events').delete().eq('id', scan.id);
+  assert.equal(del.error?.code, '42501', 'histórico não pode ser apagado');
+});
+
+test('microchip: B não lê nem escreve no histórico de A', async () => {
+  const rows = unwrap(await B.sb.from('microchip_events').select('*').eq('microchip_id', dataA.microchip.id));
+  assert.equal(rows.length, 0);
+  const own = unwrap(await B.sb.from('microchip_events').select('clinic_id'));
+  assert.ok(own.every((e) => e.clinic_id === clinicB.id));
+
+  const ins = await B.sb.from('microchip_events').insert({
+    clinic_id: clinicA.id, microchip_id: dataA.microchip.id, event_type: 'note', details: 'intruso',
+  });
+  assert.ok(ins.error, 'B não pode anotar no chip de A');
+
+  // Chip de A com clinic_id de B: FK composta impede.
+  const cross = await B.sb.from('microchip_events').insert({
+    clinic_id: clinicB.id, microchip_id: dataA.microchip.id, event_type: 'note', details: 'intruso',
+  });
+  assert.equal(cross.error?.code, '23503', cross.error?.message);
+});
+
+test('microchip: busca entre clínicas só revela nome da clínica com opt-in', async () => {
+  // Sem opt-in: B só encontra o próprio chip.
+  let res = unwrap(await B.sb.rpc('lookup_microchip', { p_code: CHIP_CODE }));
+  assert.deepEqual(res, [{ clinic_name: clinicB.name, own_clinic: true }]);
+
+  unwrap(await A.sb.from('microchips').update({ public_lookup: true }).eq('id', dataA.microchip.id));
+  res = unwrap(await B.sb.rpc('lookup_microchip', { p_code: SPACED_CHIP_CODE }));
+  assert.equal(res.length, 2);
+  const other = res.find((r) => !r.own_clinic);
+  assert.deepEqual(Object.keys(other).sort(), ['clinic_name', 'own_clinic'], 'nenhum dado além do nome da clínica');
+  assert.equal(other.clinic_name, clinicA.name);
+
+  const invalid = await B.sb.rpc('lookup_microchip', { p_code: 'abc' });
+  assert.equal(invalid.error?.code, '22023');
+
+  const anon = await newClient().rpc('lookup_microchip', { p_code: CHIP_CODE });
+  assert.ok(anon.error, 'anônimo não busca chips');
+});
+
+test('microchip: recepção não exclui chip; excluir animal desvincula e registra no histórico', async () => {
+  const S = await signUp('staff-chip');
+  unwrap(await A.sb.rpc('add_clinic_member', { p_clinic_id: clinicA.id, p_email: S.email, p_role: 'staff' }));
+  const deleted = unwrap(await S.sb.from('microchips').delete().eq('id', dataA.microchip.id).select());
+  assert.equal(deleted.length, 0, 'staff apagou chip');
+
+  const animal = unwrap(
+    await A.sb.from('animals').insert({
+      clinic_id: clinicA.id, client_id: dataA.client.id, name: 'Temporário', species: 'Cat',
+      breed: 'SRD', age: 1, date_of_birth: '2025-01-01', weight: 3,
+    }).select().single()
+  );
+  const chip = unwrap(
+    await A.sb.from('microchips').insert({ clinic_id: clinicA.id, animal_id: animal.id, code: '076000000000001' }).select().single()
+  );
+  unwrap(await A.sb.from('animals').delete().eq('id', animal.id));
+
+  const after = unwrap(await A.sb.from('microchips').select('animal_id').eq('id', chip.id).single());
+  assert.equal(after.animal_id, null);
+  const events = unwrap(await A.sb.from('microchip_events').select('event_type, animal_id').eq('microchip_id', chip.id));
+  assert.ok(events.some((e) => e.event_type === 'unlinked' && e.animal_id === animal.id));
 });
