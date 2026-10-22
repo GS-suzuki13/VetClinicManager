@@ -10,6 +10,7 @@ import {
   UsersRound,
   LogOut,
   Building2,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { clinicRoleLabels } from '../lib/supabase';
@@ -17,8 +18,12 @@ import { clinicRoleLabels } from '../lib/supabase';
 interface SidebarProps {
   currentPage: string;
   onNavigate: (page: string) => void;
+  // Recolhida (só ícones) no desktop.
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
+  // Gaveta aberta no celular/tablet (< lg).
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 const menuItems = [
@@ -32,14 +37,18 @@ const menuItems = [
   { id: 'team', label: 'Equipe', icon: UsersRound },
 ];
 
-export default function Sidebar({ currentPage, onNavigate, collapsed, setCollapsed }: SidebarProps) {
+export default function Sidebar({ currentPage, onNavigate, collapsed: collapsedDesktop, setCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const { user, clinics, activeClinic, setActiveClinicId, signOut } = useAuth();
+  // A gaveta do celular sempre mostra os rótulos.
+  const collapsed = collapsedDesktop && !mobileOpen;
 
   return (
+    <>
+    {mobileOpen && <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={onCloseMobile} aria-hidden="true" />}
     <div
-      className={`fixed left-0 top-0 h-full bg-slate-900 text-white flex flex-col transition-all duration-300 z-30 ${
+      className={`fixed left-0 top-0 h-full bg-slate-900 text-white flex flex-col transition-all duration-300 z-40 ${
         collapsed ? 'w-20' : 'w-64'
-      }`}
+      } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
     >
       {/* Header */}
       <div className="p-4 border-b border-slate-700 flex items-center justify-between">
@@ -50,17 +59,20 @@ export default function Sidebar({ currentPage, onNavigate, collapsed, setCollaps
             </div>
             <div>
               <h1 className="text-xl font-bold">VetClinic</h1>
-              <p className="text-xs text-slate-400">Management System</p>
+              <p className="text-xs text-slate-400">Gestão Veterinária</p>
             </div>
           </div>
         )}
 
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => setCollapsed(!collapsedDesktop)}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+          className="hidden lg:block p-2 hover:bg-slate-800 rounded-lg transition-colors"
         >
           <Menu className="w-5 h-5" />
+        </button>
+        <button onClick={onCloseMobile} aria-label="Fechar menu" className="lg:hidden p-2 hover:bg-slate-800 rounded-lg transition-colors">
+          <X className="w-5 h-5" />
         </button>
       </div>
 
@@ -147,5 +159,6 @@ export default function Sidebar({ currentPage, onNavigate, collapsed, setCollaps
         </button>
       </div>
     </div>
+    </>
   );
 }

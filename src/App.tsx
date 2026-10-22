@@ -9,15 +9,29 @@ import Animals from './pages/Animals';
 import MedicalRecords from './pages/MedicalRecords';
 import Appointments from './pages/Appointments';
 import Calendar from './pages/Calendar';
-
-import AnimalsModalContainer from './containers/AnimalsModalContainer';
-import ClientsModalContainer from './containers/ClientsModalContainer';
-import AppointmentsModalContainer from './containers/AppointmentsModalContainer';
 import Vaccinations from './pages/Vaccinations';
 import Team from './pages/Team';
 
+import ClientsModal from './components/ClientsModal';
+import AnimalsModal from './components/AnimalsModal';
+import AppointmentsModal from './components/AppointmentsModal';
+
 import { useAuth } from './context/AuthContext';
+import { ClientsModalProvider } from './context/ClientsModalContext';
+import { AnimalsModalProvider } from './context/AnimalsModalContext';
+import { AppointmentsModalProvider } from './context/AppointmentsModalContext';
 import { AuthScreen, CreateClinicScreen, FullScreenLoader, ResetPasswordScreen } from './pages/auth/AuthScreens';
+
+const PAGE_TITLES: Record<string, string> = {
+  dashboard: 'Visão Geral do Painel',
+  clients: 'Gestão de Clientes',
+  animals: 'Gestão de Animais',
+  'medical-records': 'Prontuários Médicos',
+  vaccinations: 'Gestão de Vacinas',
+  appointments: 'Agendamentos',
+  calendar: 'Calendário',
+  team: 'Clínica e Equipe',
+};
 
 function App() {
   const { session, loading, passwordRecovery, activeClinic } = useAuth();
@@ -27,26 +41,39 @@ function App() {
   if (!session) return <AuthScreen />;
   if (!activeClinic) return <CreateClinicScreen />;
 
-  // key: ao trocar de clínica, todas as telas e modais remontam e recarregam os dados.
-  return <ClinicApp key={activeClinic.id} />;
+  // key: ao trocar de clínica, telas, modais e seus estados remontam e recarregam.
+  return (
+    <ClientsModalProvider key={activeClinic.id}>
+      <AnimalsModalProvider>
+        <AppointmentsModalProvider>
+          <ClinicApp />
+        </AppointmentsModalProvider>
+      </AnimalsModalProvider>
+    </ClientsModalProvider>
+  );
 }
 
 function ClinicApp() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigate = (page: string) => {
+    setCurrentPage(page);
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0 });
+  };
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard onNavigate={setCurrentPage} />;
       case 'clients':
         return <Clients />;
       case 'animals':
-        return <Animals />;
+        return <Animals onNavigate={navigate} />;
       case 'medical-records':
         return <MedicalRecords />;
       case 'vaccinations':
-        return <Vaccinations />
+        return <Vaccinations />;
       case 'appointments':
         return <Appointments />;
       case 'calendar':
@@ -54,30 +81,7 @@ function ClinicApp() {
       case 'team':
         return <Team />;
       default:
-        return <Dashboard onNavigate={setCurrentPage} />;
-    }
-  };
-
-  const getPageTitle = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return 'Visão Geral do Painel';
-      case 'clients':
-        return 'Gestão de Clientes';
-      case 'animals':
-        return 'Gestão de Animais';
-      case 'medical-records':
-        return 'Prontuários Médicos';
-      case 'vaccinations':
-        return 'Gestão de Vacinas';
-      case 'appointments':
-        return 'Agendamentos';
-      case 'calendar':
-        return 'Visualização em Calendário';
-      case 'team':
-        return 'Clínica e Equipe';
-      default:
-        return 'Painel';
+        return <Dashboard onNavigate={navigate} />;
     }
   };
 
@@ -85,18 +89,20 @@ function ClinicApp() {
     <div className="min-h-screen bg-slate-50">
       <Sidebar
         currentPage={currentPage}
-        onNavigate={setCurrentPage}
+        onNavigate={navigate}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
       />
 
-      <Layout title={getPageTitle()} collapsed={sidebarCollapsed}>
+      <Layout title={PAGE_TITLES[currentPage] ?? 'Painel'} collapsed={sidebarCollapsed} onOpenMenu={() => setMobileMenuOpen(true)}>
         {renderPage()}
       </Layout>
 
-      <AnimalsModalContainer />
-      <ClientsModalContainer />
-      <AppointmentsModalContainer />
+      <ClientsModal />
+      <AnimalsModal />
+      <AppointmentsModal />
     </div>
   );
 }
