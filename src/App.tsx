@@ -11,6 +11,7 @@ import Appointments from './pages/Appointments';
 import Calendar from './pages/Calendar';
 import Vaccinations from './pages/Vaccinations';
 import Team from './pages/Team';
+import Microchips from './pages/Microchips';
 
 import ClientsModal from './components/ClientsModal';
 import AnimalsModal from './components/AnimalsModal';
@@ -28,6 +29,7 @@ const PAGE_TITLES: Record<string, string> = {
   animals: 'Gestão de Animais',
   'medical-records': 'Prontuários Médicos',
   vaccinations: 'Gestão de Vacinas',
+  microchips: 'Microchips',
   appointments: 'Agendamentos',
   calendar: 'Calendário',
   team: 'Clínica e Equipe',
@@ -74,6 +76,8 @@ function ClinicApp() {
         return <MedicalRecords />;
       case 'vaccinations':
         return <Vaccinations />;
+      case 'microchips':
+        return <Microchips />;
       case 'appointments':
         return <Appointments />;
       case 'calendar':

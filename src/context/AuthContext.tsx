@@ -154,6 +154,11 @@ export function canDeleteClinicalData(role: ClinicRole) {
   return role === 'owner' || role === 'admin' || role === 'veterinarian';
 }
 
+// Excluir um chip apaga o histórico; o normal é alterar o status.
+export function canDeleteMicrochip(role: ClinicRole) {
+  return role === 'owner' || role === 'admin';
+}
+
 export function canManageTeam(role: ClinicRole) {
   return role === 'owner' || role === 'admin';
 }
