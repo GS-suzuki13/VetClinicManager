@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, X, Search } from 'lucide-react';
 import { supabase, Client } from '../lib/supabase';
+import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 
 export default function Clients() {
+  const canDelete = canDeleteClinicalData(useClinic().role);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -199,12 +201,14 @@ export default function Clients() {
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(client.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

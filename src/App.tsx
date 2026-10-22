@@ -13,10 +13,25 @@ import Calendar from './pages/Calendar';
 import AnimalsModalContainer from './containers/AnimalsModalContainer';
 import ClientsModalContainer from './containers/ClientsModalContainer';
 import AppointmentsModalContainer from './containers/AppointmentsModalContainer';
-import VaccinationModal from './components/VaccinationModal';
 import Vaccinations from './pages/Vaccinations';
+import Team from './pages/Team';
+
+import { useAuth } from './context/AuthContext';
+import { AuthScreen, CreateClinicScreen, FullScreenLoader, ResetPasswordScreen } from './pages/auth/AuthScreens';
 
 function App() {
+  const { session, loading, passwordRecovery, activeClinic } = useAuth();
+
+  if (loading) return <FullScreenLoader />;
+  if (passwordRecovery) return <ResetPasswordScreen />;
+  if (!session) return <AuthScreen />;
+  if (!activeClinic) return <CreateClinicScreen />;
+
+  // key: ao trocar de clínica, todas as telas e modais remontam e recarregam os dados.
+  return <ClinicApp key={activeClinic.id} />;
+}
+
+function ClinicApp() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -36,6 +51,8 @@ function App() {
         return <Appointments />;
       case 'calendar':
         return <Calendar />;
+      case 'team':
+        return <Team />;
       default:
         return <Dashboard onNavigate={setCurrentPage} />;
     }
@@ -57,6 +74,8 @@ function App() {
         return 'Agendamentos';
       case 'calendar':
         return 'Visualização em Calendário';
+      case 'team':
+        return 'Clínica e Equipe';
       default:
         return 'Painel';
     }

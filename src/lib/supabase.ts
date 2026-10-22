@@ -7,10 +7,51 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Clínica ativa enviada em toda requisição. As políticas RLS usam o header
+// apenas para restringir o escopo; o acesso continua exigindo membership.
+let activeClinicId: string | null = null;
+
+export function setActiveClinicScope(id: string | null) {
+  activeClinicId = id;
+}
+
+const clinicScopedFetch: typeof fetch = (input, init) => {
+  if (!activeClinicId) return fetch(input, init);
+  const headers = new Headers(init?.headers);
+  headers.set('x-clinic-id', activeClinicId);
+  return fetch(input, { ...init, headers });
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: clinicScopedFetch },
+});
+
+export type ClinicRole = 'owner' | 'admin' | 'veterinarian' | 'staff';
+
+export const clinicRoleLabels: Record<ClinicRole, string> = {
+  owner: 'Proprietário',
+  admin: 'Administrador',
+  veterinarian: 'Veterinário',
+  staff: 'Recepção',
+};
+
+export interface Clinic {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClinicMember {
+  user_id: string;
+  email: string;
+  role: ClinicRole;
+  created_at: string;
+}
 
 export interface Client {
   id: string;
+  clinic_id: string;
   full_name: string;
   cpf: string;
   email: string;
@@ -23,6 +64,7 @@ export interface Client {
 
 export interface Animal {
   id: string;
+  clinic_id: string;
   client_id: string;
   name: string;
   species: 'Dog' | 'Cat';
@@ -36,6 +78,7 @@ export interface Animal {
 
 export interface MedicalRecord {
   id: string;
+  clinic_id: string;
   animal_id: string;
   consultation_date: string;
   symptoms: string;
@@ -50,6 +93,7 @@ export interface MedicalRecord {
 
 export interface Appointment {
   id: string;
+  clinic_id: string;
   client_id: string;
   animal_id: string;
   appointment_date: string;
@@ -83,6 +127,7 @@ export interface MicrochipHistorico {
 
 export interface Vaccination {
   id: string;
+  clinic_id: string;
   animal_id: string;
 
   vaccine_name: string;
