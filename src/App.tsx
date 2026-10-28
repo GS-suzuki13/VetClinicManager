@@ -36,8 +36,9 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function App() {
-  const { session, loading, passwordRecovery, activeClinic } = useAuth();
+  const { session, loading, passwordRecovery, activeClinic, demoStep } = useAuth();
 
+  if (demoStep) return <FullScreenLoader message={demoStep} />;
   if (loading) return <FullScreenLoader />;
   if (passwordRecovery) return <ResetPasswordScreen />;
   if (!session) return <AuthScreen />;
