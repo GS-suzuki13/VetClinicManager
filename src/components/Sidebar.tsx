@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { clinicRoleLabels } from '../lib/supabase';
+import { isDemoUser } from '../lib/demo';
 
 interface SidebarProps {
   currentPage: string;
@@ -41,6 +42,7 @@ const menuItems = [
 
 export default function Sidebar({ currentPage, onNavigate, collapsed: collapsedDesktop, setCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const { user, clinics, activeClinic, setActiveClinicId, signOut } = useAuth();
+  const demo = isDemoUser(user);
   // A gaveta do celular sempre mostra os rótulos.
   const collapsed = collapsedDesktop && !mobileOpen;
 
@@ -143,8 +145,8 @@ export default function Sidebar({ currentPage, onNavigate, collapsed: collapsedD
       <div className={`border-t border-slate-700 ${collapsed ? 'p-3' : 'p-4'}`}>
         {!collapsed && (
           <div className="mb-3 min-w-0">
-            <p className="text-sm truncate" title={user?.email}>
-              {user?.email}
+            <p className="text-sm truncate" title={demo ? 'Visitante da demonstração' : user?.email}>
+              {demo ? 'Visitante da demonstração' : user?.email}
             </p>
             {activeClinic && <p className="text-xs text-slate-400">{clinicRoleLabels[activeClinic.role]}</p>}
           </div>

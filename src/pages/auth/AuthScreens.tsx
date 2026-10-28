@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, Dog, Loader2, LogOut } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, CheckCircle2, Dog, Loader2, LogOut, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -98,6 +98,7 @@ function SubmitButton({ busy, children }: { busy: boolean; children: ReactNode }
 type Mode = 'signin' | 'signup' | 'forgot';
 
 export function AuthScreen() {
+  const { startDemo, demoError } = useAuth();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -150,6 +151,27 @@ export function AuthScreen() {
 
   return (
     <AuthShell title={copy.title} subtitle={copy.subtitle}>
+      {mode === 'signin' && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-center gap-2 text-emerald-800">
+            <Sparkles className="w-4 h-4" />
+            <p className="text-sm font-semibold">Quer conhecer o sistema?</p>
+          </div>
+          <p className="mt-1 text-sm text-emerald-900/80">
+            Entre numa clínica de exemplo criada só para você, com tutores, pets, agenda e vacinas fictícios. Sem cadastro.
+          </p>
+          <button
+            type="button"
+            onClick={startDemo}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
+          >
+            Acessar demonstração
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          {demoError && <p role="alert" className="mt-2 text-sm text-red-700">{demoError}</p>}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <Notice kind="error">{error}</Notice>}
         {info && <Notice kind="success">{info}</Notice>}
@@ -298,10 +320,11 @@ export function CreateClinicScreen() {
   );
 }
 
-export function FullScreenLoader() {
+export function FullScreenLoader({ message }: { message?: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
+      {message && <p role="status" className="text-sm font-medium text-slate-600">{message}</p>}
     </div>
   );
 }
