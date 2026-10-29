@@ -10,10 +10,11 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "dev:local": "vite --mode localdb",
-    "test:isolation": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:isolation": "node --test --test-concurrency=1 tests/isolation.test.mjs",
     "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor,mailpit",
     "db:reset": "supabase db reset",
-    "db:stop": "supabase stop"
+    "db:stop": "supabase stop",
+    "test:db": "node --test --test-concurrency=1 tests/db/database.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -22,6 +23,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.7",
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

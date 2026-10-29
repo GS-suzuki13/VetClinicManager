@@ -154,7 +154,19 @@ async function seedClinic(sb, clinicId, tag) {
       .select()
       .single()
   );
-  return { client, animal, record, vaccination, appointment, microchip };
+  const clinicalEvent = unwrap(
+    await sb
+      .from('clinical_events')
+      .insert({
+        clinic_id: clinicId,
+        animal_id: animal.id,
+        event_type: 'alert',
+        title: `Alergia fictícia ${tag}`,
+      })
+      .select()
+      .single()
+  );
+  return { client, animal, record, vaccination, appointment, microchip, clinicalEvent };
 }
 
 // Único por execução: rodadas anteriores no mesmo banco não interferem na busca entre clínicas.
@@ -168,6 +180,7 @@ const TABLES = {
   animal_vaccinations: 'vaccination',
   appointments: 'appointment',
   microchips: 'microchip',
+  clinical_events: 'clinicalEvent',
 };
 
 let A, B, clinicA, clinicB, dataA, dataB;
@@ -417,7 +430,7 @@ test('membro "staff" vê só a clínica dele e não apaga histórico clínico', 
   assert.ok(rows.some((r) => r.id === dataA.animal.id));
   assert.ok(!rows.some((r) => r.id === dataB.animal.id));
 
-  for (const [table, key] of [['medical_records', 'record'], ['animal_vaccinations', 'vaccination'], ['clients', 'client'], ['animals', 'animal']]) {
+  for (const [table, key] of [['medical_records', 'record'], ['animal_vaccinations', 'vaccination'], ['clinical_events', 'clinicalEvent'], ['clients', 'client'], ['animals', 'animal']]) {
     const deleted = unwrap(await C.sb.from(table).delete().eq('id', dataA[key].id).select());
     assert.equal(deleted.length, 0, `staff apagou ${table}`);
   }
@@ -660,4 +673,182 @@ test('microchip: recepção não exclui chip; excluir animal desvincula e regist
   assert.equal(after.animal_id, null);
   const events = unwrap(await A.sb.from('microchip_events').select('event_type, animal_id').eq('microchip_id', chip.id));
   assert.ok(events.some((e) => e.event_type === 'unlinked' && e.animal_id === animal.id));
+});
+
+// ---------------------------------------------------------------------------
+// Ficha do animal (eventos clínicos)
+// ---------------------------------------------------------------------------
+
+test('ficha: autor vem da sessão e não pode ser forjado nem alterado', async () => {
+  const created = unwrap(
+    await A.sb
+      .from('clinical_events')
+      .insert({ animal_id: dataA.animal.id, event_type: 'note', title: 'Observação', author_id: B.userId, author_email: 'forjado@example.test' })
+      .select()
+      .single()
+  );
+  assert.equal(created.author_id, A.userId);
+  assert.equal(created.author_email, A.email);
+  assert.equal(created.clinic_id, clinicA.id);
+
+  const updated = unwrap(
+    await A.sb.from('clinical_events').update({ author_id: B.userId, author_email: 'x@example.test', title: 'Editada' }).eq('id', created.id).select().single()
+  );
+  assert.equal(updated.author_id, A.userId);
+  assert.equal(updated.author_email, A.email);
+  assert.equal(updated.title, 'Editada');
+});
+
+test('ficha: pesagem mais recente atualiza o peso do animal', async () => {
+  const insert = (kg, when) =>
+    A.sb.from('clinical_events').insert({ animal_id: dataA.animal.id, event_type: 'weight', weight_kg: kg, occurred_at: when }).select().single();
+  unwrap(await insert(12.345, '2026-03-01T10:00:00Z'));
+  const older = unwrap(await insert(9, '2026-01-01T10:00:00Z'));
+
+  let animal = unwrap(await A.sb.from('animals').select('weight').eq('id', dataA.animal.id).single());
+  assert.equal(Number(animal.weight), 12.35, 'pesagem antiga não sobrescreve a mais recente');
+
+  unwrap(await A.sb.from('clinical_events').update({ occurred_at: '2026-06-01T10:00:00Z' }).eq('id', older.id));
+  animal = unwrap(await A.sb.from('animals').select('weight').eq('id', dataA.animal.id).single());
+  assert.equal(Number(animal.weight), 9);
+});
+
+test('ficha: tipos validados no banco', async () => {
+  const bad = [
+    { event_type: 'weight' },
+    { event_type: 'note', title: '  ' },
+    { event_type: 'vitals' },
+    { event_type: 'note', title: 'x', weight_kg: 3 },
+    { event_type: 'vitals', temperature_c: 60 },
+    { event_type: 'note', title: 'x', resolved_at: new Date().toISOString() },
+    { event_type: 'outro', title: 'x' },
+  ];
+  for (const row of bad) {
+    const { error } = await A.sb.from('clinical_events').insert({ animal_id: dataA.animal.id, ...row });
+    assert.equal(error?.code, '23514', `deveria rejeitar ${JSON.stringify(row)}: ${error?.message}`);
+  }
+  unwrap(await A.sb.from('clinical_events').insert({ animal_id: dataA.animal.id, event_type: 'vitals', temperature_c: 38.6, pain_score: 2 }));
+});
+
+test('ficha: não cria evento para animal de outra clínica', async () => {
+  const { error } = await A.sb.from('clinical_events').insert({ clinic_id: clinicA.id, animal_id: dataB.animal.id, event_type: 'note', title: 'x' });
+  assert.ok(error, 'deveria falhar');
+});
+
+// ---------------------------------------------------------------------------
+// Agenda: fluxo de atendimento e profissional
+// ---------------------------------------------------------------------------
+
+test('agenda: transições gravam chegada, início e fim pelo servidor', async () => {
+  const apt = unwrap(
+    await A.sb
+      .from('appointments')
+      .insert({
+        client_id: dataA.client.id,
+        animal_id: dataA.animal.id,
+        appointment_date: '2026-12-02',
+        appointment_time: '09:00',
+        reason_for_visit: 'fluxo',
+        checked_in_at: '2000-01-01T00:00:00Z',
+      })
+      .select()
+      .single()
+  );
+  assert.equal(apt.checked_in_at, null, 'cliente não define horários do fluxo');
+
+  const waiting = unwrap(await A.sb.from('appointments').update({ status: 'Waiting' }).eq('id', apt.id).select().single());
+  assert.ok(waiting.checked_in_at);
+  const started = unwrap(await A.sb.from('appointments').update({ status: 'InProgress' }).eq('id', apt.id).select().single());
+  assert.equal(started.checked_in_at, waiting.checked_in_at);
+  assert.ok(started.started_at);
+  const done = unwrap(await A.sb.from('appointments').update({ status: 'Completed', started_at: null }).eq('id', apt.id).select().single());
+  assert.equal(done.started_at, started.started_at, 'edição não apaga tempos');
+  assert.ok(done.finished_at);
+
+  const back = unwrap(await A.sb.from('appointments').update({ status: 'Scheduled' }).eq('id', apt.id).select().single());
+  assert.equal(back.checked_in_at, null);
+  assert.equal(back.finished_at, null);
+});
+
+test('agenda: mesmo profissional não tem horários sobrepostos', async () => {
+  const base = {
+    client_id: dataA.client.id,
+    animal_id: dataA.animal.id,
+    appointment_date: '2026-12-03',
+    reason_for_visit: 'conflito',
+    professional_id: A.userId,
+    duration_minutes: 30,
+  };
+  const first = unwrap(await A.sb.from('appointments').insert({ ...base, appointment_time: '10:00' }).select().single());
+  const overlap = await A.sb.from('appointments').insert({ ...base, appointment_time: '10:15' });
+  assert.equal(overlap.error?.code, '23P01', overlap.error?.message);
+
+  unwrap(await A.sb.from('appointments').insert({ ...base, appointment_time: '10:30' }));
+  unwrap(await A.sb.from('appointments').insert({ ...base, appointment_time: '10:15', professional_id: null }));
+
+  unwrap(await A.sb.from('appointments').update({ status: 'Cancelled' }).eq('id', first.id));
+  unwrap(await A.sb.from('appointments').insert({ ...base, appointment_time: '10:00' }));
+});
+
+test('agenda: profissional precisa ser da equipe da clínica', async () => {
+  const { error } = await A.sb.from('appointments').insert({
+    client_id: dataA.client.id,
+    animal_id: dataA.animal.id,
+    appointment_date: '2026-12-04',
+    appointment_time: '11:00',
+    reason_for_visit: 'outro tenant',
+    professional_id: B.userId,
+  });
+  assert.equal(error?.code, '23503', error?.message);
+});
+
+// ---------------------------------------------------------------------------
+// Vacinas: protocolos e programação
+// ---------------------------------------------------------------------------
+
+test('vacinas: protocolo programa a série, aplica dose e programa reforço', async () => {
+  const proto = unwrap(
+    await A.sb.from('vaccine_protocols').insert({ name: 'V10 teste', doses: 2, interval_days: 21, booster_days: 365 }).select().single()
+  );
+  const series = unwrap(await A.sb.rpc('apply_vaccine_protocol', { p_animal_id: dataA.animal.id, p_protocol_id: proto.id, p_start: '2026-01-10' }));
+  let doses = unwrap(await A.sb.from('vaccine_doses').select('*').eq('series_id', series).order('dose_number'));
+  assert.deepEqual(doses.map((d) => d.due_date), ['2026-01-10', '2026-01-31']);
+
+  unwrap(await A.sb.rpc('apply_vaccine_dose', { p_dose_id: doses[0].id, p_application_date: '2026-01-10' }));
+  const vacc2 = unwrap(await A.sb.rpc('apply_vaccine_dose', { p_dose_id: doses[1].id, p_application_date: '2026-02-01' }));
+
+  doses = unwrap(await A.sb.from('vaccine_doses').select('*').eq('series_id', series).order('dose_number'));
+  assert.equal(doses.length, 3);
+  assert.equal(doses[2].is_booster, true);
+  assert.equal(doses[2].due_date, '2027-02-01');
+
+  const v = unwrap(await A.sb.from('animal_vaccinations').select('*').eq('id', vacc2).single());
+  assert.equal(v.vaccine_name, 'V10 teste');
+  assert.equal(v.next_dose_date, '2027-02-01');
+
+  const again = await A.sb.rpc('apply_vaccine_dose', { p_dose_id: doses[1].id, p_application_date: '2026-02-01' });
+  assert.equal(again.error?.code, '22023', 'dose já aplicada não é aplicada de novo');
+});
+
+test('vacinas: protocolo encadeado é programado ao terminar a série', async () => {
+  const adult = unwrap(await A.sb.from('vaccine_protocols').insert({ name: 'Adulto', doses: 1, interval_days: 30 }).select().single());
+  const puppy = unwrap(
+    await A.sb.from('vaccine_protocols').insert({ name: 'Filhote', doses: 1, interval_days: 30, next_protocol_id: adult.id }).select().single()
+  );
+  const series = unwrap(await A.sb.rpc('apply_vaccine_protocol', { p_animal_id: dataA.animal.id, p_protocol_id: puppy.id, p_start: '2026-03-01' }));
+  const [dose] = unwrap(await A.sb.from('vaccine_doses').select('*').eq('series_id', series));
+  unwrap(await A.sb.rpc('apply_vaccine_dose', { p_dose_id: dose.id, p_application_date: '2026-03-02' }));
+  const chained = unwrap(await A.sb.from('vaccine_doses').select('*').eq('protocol_id', adult.id).eq('animal_id', dataA.animal.id));
+  assert.equal(chained.length, 1);
+  assert.equal(chained[0].due_date, '2026-04-01');
+});
+
+test('vacinas: B não usa protocolo nem animal de A', async () => {
+  const proto = unwrap(await A.sb.from('vaccine_protocols').insert({ name: 'Privado A', doses: 1, interval_days: 10 }).select().single());
+  const cross = await B.sb.rpc('apply_vaccine_protocol', { p_animal_id: dataB.animal.id, p_protocol_id: proto.id, p_start: '2026-01-01' });
+  assert.ok(cross.error, 'B não enxerga o protocolo de A');
+  const list = unwrap(await B.sb.from('vaccine_protocols').select('*'));
+  assert.ok(!list.some((p) => p.id === proto.id));
+  const direct = await B.sb.from('vaccine_doses').insert({ animal_id: dataA.animal.id, protocol_id: proto.id, series_id: proto.id, dose_number: 1, due_date: '2026-01-01' });
+  assert.ok(direct.error, 'B não programa dose para animal de A');
 });
