@@ -66,6 +66,27 @@ export default {
           950: '#112334',
         },
       },
+      // Animações curtas (150–250 ms): entrada de modais, páginas e avisos.
+      keyframes: {
+        'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'fade-out': { from: { opacity: '1' }, to: { opacity: '0' } },
+        'modal-in': { from: { opacity: '0', transform: 'translateY(8px) scale(0.98)' }, to: { opacity: '1', transform: 'translateY(0) scale(1)' } },
+        'modal-out': { from: { opacity: '1', transform: 'translateY(0) scale(1)' }, to: { opacity: '0', transform: 'translateY(8px) scale(0.98)' } },
+        'sheet-in': { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
+        'sheet-out': { from: { transform: 'translateY(0)' }, to: { transform: 'translateY(100%)' } },
+        'page-in': { from: { opacity: '0', transform: 'translateY(6px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+        'toast-in': { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+      },
+      animation: {
+        'fade-in': 'fade-in 180ms ease-out',
+        'fade-out': 'fade-out 160ms ease-in forwards',
+        'modal-in': 'modal-in 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'modal-out': 'modal-out 160ms ease-in forwards',
+        'sheet-in': 'sheet-in 260ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'sheet-out': 'sheet-out 180ms ease-in forwards',
+        'page-in': 'page-in 220ms ease-out',
+        'toast-in': 'toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+      },
       fontFamily: {
         sans: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         display: ['Nunito', '"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],

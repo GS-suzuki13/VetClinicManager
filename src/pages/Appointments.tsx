@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit, Trash2, Clock } from 'lucide-react';
 import { supabase, Appointment } from '../lib/supabase';
-import { dbErrorMessage, formatDate, statusLabel, statusStyle } from '../lib/format';
+import { dbErrorMessage, formatDate, formatMinutes, isLate, statusLabel, statusStyle } from '../lib/format';
+import { memberName, useClinicMembers } from '../lib/team';
+import { useClinic } from '../context/AuthContext';
 import { useAppointmentsModal } from '../context/AppointmentsModalContext';
 import PageToolbar, { IconButton, PageLoader } from '../components/PageToolbar';
-import type { AppointmentWithDetails } from '../components/AppointmentDetailsModal';
+import AppointmentDetailsModal, { AppointmentWithDetails } from '../components/AppointmentDetailsModal';
+import { askConfirm, notify } from '../lib/dialogs';
 
-export default function Appointments() {
+export default function Appointments({ onOpenRecord }: { onOpenRecord: (animalId: string) => void }) {
   const { openModal, savedVersion } = useAppointmentsModal();
+  const members = useClinicMembers(useClinic().id);
+  const [details, setDetails] = useState<AppointmentWithDetails | null>(null);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,9 +34,9 @@ export default function Appointments() {
   }, [loadAppointments, savedVersion]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza de que deseja excluir este agendamento?')) return;
+    if (!(await askConfirm('Tem certeza de que deseja excluir este agendamento?', { danger: true, title: 'Excluir', confirmLabel: 'Excluir' }))) return;
     const { error } = await supabase.from('appointments').delete().eq('id', id);
-    if (error) alert(dbErrorMessage(error, 'Erro ao excluir o agendamento.'));
+    if (error) notify(dbErrorMessage(error, 'Erro ao excluir o agendamento.'));
     else loadAppointments();
   };
 
@@ -78,7 +83,8 @@ export default function Appointments() {
           filteredAppointments.map((appointment) => (
             <div
               key={appointment.id}
-              className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 hover:shadow-md transition-shadow"
+              onClick={() => setDetails(appointment)}
+              className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer"
             >
               <div className="flex justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
@@ -90,7 +96,9 @@ export default function Appointments() {
                       {appointment.animals.name} - {appointment.clients.full_name}
                     </h3>
                     <p className="text-sm text-slate-600">
-                      {formatDate(appointment.appointment_date)} às {appointment.appointment_time.slice(0, 5)}
+                      {formatDate(appointment.appointment_date)} às {appointment.appointment_time.slice(0, 5)} • {formatMinutes(appointment.duration_minutes)}
+                      {appointment.care_type && <> • {appointment.care_type}</>}
+                      {appointment.professional_id && <> • {memberName(members.find((m) => m.user_id === appointment.professional_id))}</>}
                     </p>
                     <p className="text-sm text-slate-700 mt-2 break-words">
                       <span className="font-medium">Motivo: </span>
@@ -99,14 +107,31 @@ export default function Appointments() {
                     <span className={`inline-block mt-2 px-2 py-1 rounded-full text-xs font-medium ${statusStyle[appointment.status]}`}>
                       {statusLabel[appointment.status]}
                     </span>
+                    {isLate(appointment) && (
+                      <span className="inline-block mt-2 ml-2 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Atrasado</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1 shrink-0">
-                  <IconButton tone="blue" title="Editar" onClick={() => openModal(appointment)}>
+                  <IconButton
+                    tone="blue"
+                    title="Editar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openModal(appointment);
+                    }}
+                  >
                     <Edit className="w-4 h-4" />
                   </IconButton>
-                  <IconButton tone="red" title="Excluir" onClick={() => handleDelete(appointment.id)}>
+                  <IconButton
+                    tone="red"
+                    title="Excluir"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(appointment.id);
+                    }}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </IconButton>
                 </div>
@@ -115,6 +140,10 @@ export default function Appointments() {
           ))
         )}
       </div>
+
+      {details && (
+        <AppointmentDetailsModal appointment={details} onClose={() => setDetails(null)} onStatusUpdated={loadAppointments} onOpenRecord={onOpenRecord} />
+      )}
     </div>
   );
 }

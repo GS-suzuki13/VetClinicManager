@@ -1,10 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { supabase, MedicalRecord, Animal, Client } from '../lib/supabase';
-import { dbErrorMessage, speciesLabel, todayISO } from '../lib/format';
+import { appendText, dbErrorMessage, speciesLabel, todayISO } from '../lib/format';
 import Modal, { FormActions, FormError, fieldClass, labelClass } from './Modal';
+import DictationButton from './DictationButton';
 
 interface Props {
   record: (MedicalRecord & { animals?: Animal & { clients?: Client } }) | null;
+  // Aberto pela ficha do animal: dono e animal já definidos e travados.
+  fixedAnimal?: Pick<Animal, 'id' | 'client_id'>;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -21,14 +24,14 @@ type RecordForm = Pick<
   | 'veterinarian_name'
 >;
 
-export default function MedicalRecordModal({ record, onClose, onSaved }: Props) {
+export default function MedicalRecordModal({ record, fixedAnimal, onClose, onSaved }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
-  const [selectedClient, setSelectedClient] = useState(record?.animals?.client_id ?? '');
+  const [selectedClient, setSelectedClient] = useState(record?.animals?.client_id ?? fixedAnimal?.client_id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<RecordForm>(() => ({
-    animal_id: record?.animal_id ?? '',
+    animal_id: record?.animal_id ?? fixedAnimal?.id ?? '',
     consultation_date: record ? record.consultation_date.slice(0, 10) : todayISO(),
     symptoms: record?.symptoms ?? '',
     diagnosis: record?.diagnosis ?? '',
@@ -90,6 +93,7 @@ export default function MedicalRecordModal({ record, onClose, onSaved }: Props) 
             <label className={labelClass}>Dono *</label>
             <select
               required
+              disabled={!!fixedAnimal}
               value={selectedClient}
               onChange={(e) => {
                 setSelectedClient(e.target.value);
@@ -108,7 +112,7 @@ export default function MedicalRecordModal({ record, onClose, onSaved }: Props) 
 
           <div>
             <label className={labelClass}>Animal *</label>
-            <select required value={formData.animal_id} onChange={set('animal_id')} className={fieldClass} disabled={!selectedClient}>
+            <select required value={formData.animal_id} onChange={set('animal_id')} className={fieldClass} disabled={!selectedClient || !!fixedAnimal}>
               <option value="">{selectedClient ? 'Selecione o animal' : 'Selecione o dono primeiro'}</option>
               {animals.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -131,12 +135,18 @@ export default function MedicalRecordModal({ record, onClose, onSaved }: Props) 
         </div>
 
         <div>
-          <label className={labelClass}>Sintomas *</label>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className={`${labelClass} mb-0`}>Sintomas *</label>
+            <DictationButton onText={(text) => setFormData((prev) => ({ ...prev, symptoms: appendText(prev.symptoms, text) }))} />
+          </div>
           <textarea required rows={3} value={formData.symptoms} onChange={set('symptoms')} className={fieldClass} />
         </div>
 
         <div>
-          <label className={labelClass}>Diagnóstico *</label>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className={`${labelClass} mb-0`}>Diagnóstico *</label>
+            <DictationButton onText={(text) => setFormData((prev) => ({ ...prev, diagnosis: appendText(prev.diagnosis, text) }))} />
+          </div>
           <textarea required rows={3} value={formData.diagnosis} onChange={set('diagnosis')} className={fieldClass} />
         </div>
 
@@ -152,7 +162,10 @@ export default function MedicalRecordModal({ record, onClose, onSaved }: Props) 
         </div>
 
         <div>
-          <label className={labelClass}>Observações</label>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className={`${labelClass} mb-0`}>Observações</label>
+            <DictationButton onText={(text) => setFormData((prev) => ({ ...prev, observations: appendText(prev.observations, text) }))} />
+          </div>
           <textarea rows={3} value={formData.observations} onChange={set('observations')} className={fieldClass} />
         </div>
 

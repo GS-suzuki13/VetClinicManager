@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Users, Dog, FileText, Calendar } from 'lucide-react';
+import { Users, Dog, FileText, Calendar, Hourglass, Stethoscope, CheckCircle2, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { todayISO } from '../lib/format';
+import { formatMinutes, openStatuses, todayISO } from '../lib/format';
 import { useAppointmentsModal } from '../context/AppointmentsModalContext';
 import { useClientsModal } from '../context/ClientsModalContext';
 import { useAnimalsModal } from '../context/AnimalsModalContext';
 import CalendarPreview from '../components/CalendarPreview';
 import AppointmentDetailsModal, { AppointmentWithDetails } from '../components/AppointmentDetailsModal';
 import { PageLoader } from '../components/PageToolbar';
+import TodayTasks from '../components/TodayTasks';
 
 interface Stats {
   totalClients: number;
@@ -16,8 +17,24 @@ interface Stats {
   upcomingAppointments: number;
 }
 
-export default function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
+// Fila do dia e tempos médios (espera = chegada → início; atendimento = início → fim).
+interface Today {
+  waiting: number;
+  inProgress: number;
+  completed: number;
+  avgWait: number | null;
+  avgService: number | null;
+}
+
+function average(values: number[]) {
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+const minutes = (a: string, b: string) => (new Date(b).getTime() - new Date(a).getTime()) / 60000;
+
+export default function Dashboard({ onNavigate, onOpenRecord }: { onNavigate: (page: string) => void; onOpenRecord: (animalId: string) => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [today, setToday] = useState<Today | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [statusVersion, setStatusVersion] = useState(0);
 
@@ -28,12 +45,22 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string) =
 
   const loadStats = useCallback(async () => {
     const count = { count: 'exact', head: true } as const;
-    const [clientsRes, animalsRes, recordsRes, appointmentsRes] = await Promise.all([
+    const [clientsRes, animalsRes, recordsRes, appointmentsRes, todayRes] = await Promise.all([
       supabase.from('clients').select('*', count),
       supabase.from('animals').select('*', count),
       supabase.from('medical_records').select('*', count),
-      supabase.from('appointments').select('*', count).eq('status', 'Scheduled').gte('appointment_date', todayISO()),
+      supabase.from('appointments').select('*', count).in('status', openStatuses).gte('appointment_date', todayISO()),
+      supabase.from('appointments').select('status, checked_in_at, started_at, finished_at').eq('appointment_date', todayISO()),
     ]);
+
+    const rows = todayRes.data ?? [];
+    setToday({
+      waiting: rows.filter((r) => r.status === 'Waiting').length,
+      inProgress: rows.filter((r) => r.status === 'InProgress').length,
+      completed: rows.filter((r) => r.status === 'Completed').length,
+      avgWait: average(rows.filter((r) => r.checked_in_at && r.started_at).map((r) => minutes(r.checked_in_at!, r.started_at!))),
+      avgService: average(rows.filter((r) => r.started_at && r.finished_at).map((r) => minutes(r.started_at!, r.finished_at!))),
+    });
 
     setStats({
       totalClients: clientsRes.count ?? 0,
@@ -69,7 +96,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string) =
           <button
             key={title}
             onClick={() => onNavigate(page)}
-            className="text-left bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 hover:shadow-md transition-shadow"
+            className="text-left bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-start sm:items-center justify-between gap-2">
               <div className="min-w-0">
@@ -83,6 +110,33 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string) =
           </button>
         ))}
       </div>
+
+      <TodayTasks onNavigate={onNavigate} refreshKey={refreshKey} />
+
+      {today && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">Atendimento de hoje</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+            {[
+              { label: 'Em espera', value: String(today.waiting), icon: Hourglass, color: 'text-amber-600 bg-amber-50' },
+              { label: 'Em atendimento', value: String(today.inProgress), icon: Stethoscope, color: 'text-emerald-600 bg-emerald-50' },
+              { label: 'Atendidos', value: String(today.completed), icon: CheckCircle2, color: 'text-green-600 bg-green-50' },
+              { label: 'Espera média', value: today.avgWait != null ? formatMinutes(today.avgWait) : '-', icon: Timer, color: 'text-blue-600 bg-blue-50' },
+              { label: 'Atendimento médio', value: today.avgService != null ? formatMinutes(today.avgService) : '-', icon: Timer, color: 'text-purple-600 bg-purple-50' },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3">
+                <div className={`p-2 rounded-lg ${color}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="text-lg font-bold text-slate-800">{value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <CalendarPreview
         refreshKey={refreshKey}
@@ -106,6 +160,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string) =
           appointment={selectedAppointment}
           onClose={() => setSelectedAppointment(null)}
           onStatusUpdated={() => setStatusVersion((v) => v + 1)}
+          onOpenRecord={onOpenRecord}
         />
       )}
     </div>

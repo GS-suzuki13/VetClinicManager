@@ -2,18 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit, Trash2 } from 'lucide-react';
 import { supabase, Animal, Client } from '../lib/supabase';
 import { dbErrorMessage, speciesLabel } from '../lib/format';
-import AnimalProfileModal from '../components/AnimalProfileModal';
 import PageToolbar, { IconButton, PageLoader, tdClass, thClass } from '../components/PageToolbar';
 import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
 import { useAnimalsModal } from '../context/AnimalsModalContext';
+import { askConfirm, notify } from '../lib/dialogs';
 
 type AnimalWithClient = Animal & { clients: Client };
 
-export default function Animals({ onNavigate }: { onNavigate: (page: string) => void }) {
+export default function Animals({ onOpenRecord }: { onOpenRecord: (animalId: string) => void }) {
   const canDelete = canDeleteClinicalData(useClinic().role);
   const { openModal, savedVersion } = useAnimalsModal();
   const [animals, setAnimals] = useState<AnimalWithClient[]>([]);
-  const [selectedAnimal, setSelectedAnimal] = useState<AnimalWithClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -29,11 +28,11 @@ export default function Animals({ onNavigate }: { onNavigate: (page: string) => 
   }, [loadAnimals, savedVersion]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza de que deseja excluir este animal? Isso também excluirá prontuários, vacinas e agendamentos associados.')) {
+    if (!(await askConfirm('Tem certeza de que deseja excluir este animal? Isso também excluirá prontuários, vacinas e agendamentos associados.', { danger: true, title: 'Excluir', confirmLabel: 'Excluir' }))) {
       return;
     }
     const { error } = await supabase.from('animals').delete().eq('id', id);
-    if (error) alert(dbErrorMessage(error, 'Erro ao excluir o animal.'));
+    if (error) notify(dbErrorMessage(error, 'Erro ao excluir o animal.'));
     else loadAnimals();
   };
 
@@ -81,7 +80,8 @@ export default function Animals({ onNavigate }: { onNavigate: (page: string) => 
                 filteredAnimals.map((animal) => (
                   <tr
                     key={animal.id}
-                    onClick={() => setSelectedAnimal(animal)}
+                    onClick={() => onOpenRecord(animal.id)}
+                    title="Abrir ficha do animal"
                     className="hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <td className={`${tdClass} font-medium text-slate-800`}>
@@ -136,9 +136,6 @@ export default function Animals({ onNavigate }: { onNavigate: (page: string) => 
         </div>
       </div>
 
-      {selectedAnimal && (
-        <AnimalProfileModal animal={selectedAnimal} onClose={() => setSelectedAnimal(null)} onNavigate={onNavigate} />
-      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { dbErrorMessage, formatDate } from '../lib/format';
 import { describeChipCode, formatChipCode, microchipEventLabel, microchipStatusLabel, microchipStatusStyle } from '../lib/microchip';
 import { canDeleteMicrochip, useClinic } from '../context/AuthContext';
 import Modal, { FormError, fieldClass } from './Modal';
+import { askConfirm } from '../lib/dialogs';
 
 interface Props {
   microchip: Microchip;
@@ -67,7 +68,7 @@ export default function MicrochipHistoryModal({ microchip, onClose, onEdit, onCh
   };
 
   const handleDelete = async () => {
-    if (!confirm('Excluir este microchip e TODO o seu histórico? Para chips removidos ou com defeito, prefira alterar o status.')) return;
+    if (!(await askConfirm('Excluir este microchip e TODO o seu histórico? Para chips removidos ou com defeito, prefira alterar o status.', { danger: true, title: 'Excluir', confirmLabel: 'Excluir' }))) return;
     const { error } = await supabase.from('microchips').delete().eq('id', microchip.id);
     if (error) {
       setError(dbErrorMessage(error, 'Não foi possível excluir.'));
