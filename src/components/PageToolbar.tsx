@@ -13,8 +13,8 @@ interface PageToolbarProps {
 // Busca + filtros + botão principal. Empilha no celular, linha única a partir de `sm`.
 export default function PageToolbar({ search, onSearch, placeholder, actionLabel, onAction, children }: PageToolbarProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-      <div className="relative flex-1 sm:max-w-md">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 mb-6">
+      <div className="relative flex-1 sm:min-w-[14rem] sm:max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
         <input
           type="search"

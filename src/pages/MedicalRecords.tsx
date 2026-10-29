@@ -5,6 +5,7 @@ import { dbErrorMessage, formatDate, speciesLabel } from '../lib/format';
 import MedicalRecordModal from '../components/MedicalRecordModal';
 import PageToolbar, { IconButton, PageLoader } from '../components/PageToolbar';
 import { canDeleteClinicalData, useClinic } from '../context/AuthContext';
+import { askConfirm, notify } from '../lib/dialogs';
 
 type MedicalRecordWithDetails = MedicalRecord & {
   animals: Animal & { clients: Client };
@@ -38,9 +39,9 @@ export default function MedicalRecordsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja excluir este prontuário?')) return;
+    if (!(await askConfirm('Deseja excluir este prontuário?', { danger: true, title: 'Excluir', confirmLabel: 'Excluir' }))) return;
     const { error } = await supabase.from('medical_records').delete().eq('id', id);
-    if (error) alert(dbErrorMessage(error, 'Erro ao excluir o prontuário.'));
+    if (error) notify(dbErrorMessage(error, 'Erro ao excluir o prontuário.'));
     else loadRecords();
   };
 

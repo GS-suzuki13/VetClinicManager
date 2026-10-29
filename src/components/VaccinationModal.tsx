@@ -11,19 +11,21 @@ type AnimalOption = {
 interface Props {
   // `clientId`: tutor do animal, para preencher o campo Dono ao editar.
   vaccination: (Vaccination & { clientId?: string }) | null;
+  // Aberto pela ficha do animal: dono e animal já definidos e travados.
+  fixedAnimal?: { id: string; client_id: string };
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function VaccinationModal({ vaccination, onClose, onSaved }: Props) {
+export default function VaccinationModal({ vaccination, fixedAnimal, onClose, onSaved }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [animals, setAnimals] = useState<AnimalOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState(() => ({
-    client_id: vaccination?.clientId ?? '',
-    animal_id: vaccination?.animal_id ?? '',
+    client_id: vaccination?.clientId ?? fixedAnimal?.client_id ?? '',
+    animal_id: vaccination?.animal_id ?? fixedAnimal?.id ?? '',
     vaccine_name: vaccination?.vaccine_name ?? '',
     dose_number: vaccination?.dose_number?.toString() ?? '',
     total_doses: vaccination?.total_doses?.toString() ?? '',
@@ -95,7 +97,7 @@ export default function VaccinationModal({ vaccination, onClose, onSaved }: Prop
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Dono *</label>
-            <select required name="client_id" value={formData.client_id} onChange={handleChange} className={fieldClass}>
+            <select required name="client_id" disabled={!!fixedAnimal} value={formData.client_id} onChange={handleChange} className={fieldClass}>
               <option value="">Selecione o Dono</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
@@ -110,7 +112,7 @@ export default function VaccinationModal({ vaccination, onClose, onSaved }: Prop
             <select
               required
               name="animal_id"
-              disabled={!formData.client_id}
+              disabled={!formData.client_id || !!fixedAnimal}
               value={formData.animal_id}
               onChange={handleChange}
               className={fieldClass}

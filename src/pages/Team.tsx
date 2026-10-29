@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2, UserPlus } from 'lucide-react';
 import { supabase, ClinicMember, ClinicRole, clinicRoleLabels } from '../lib/supabase';
 import { canManageTeam, useAuth, useClinic } from '../context/AuthContext';
+import { askConfirm } from '../lib/dialogs';
 
 const ROLES: ClinicRole[] = ['owner', 'admin', 'veterinarian', 'staff'];
 
@@ -72,7 +73,7 @@ export default function Team() {
   const handleRemove = async (member: ClinicMember) => {
     const self = member.user_id === user?.id;
     const question = self ? 'Deseja sair desta clínica?' : `Remover ${member.email} da equipe?`;
-    if (!confirm(question)) return;
+    if (!(await askConfirm(question, { danger: true, title: self ? 'Sair da clínica' : 'Remover da equipe', confirmLabel: self ? 'Sair' : 'Remover' }))) return;
 
     setError(null);
     const { error } = await supabase.rpc('remove_clinic_member', { p_clinic_id: clinic.id, p_user_id: member.user_id });

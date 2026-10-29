@@ -1,13 +1,25 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { supabase, Appointment, Animal, Client } from '../lib/supabase';
-import { dbErrorMessage, speciesLabel, statusLabel } from '../lib/format';
+import { careTypes, dbErrorMessage, formatMinutes, speciesLabel, statusLabel } from '../lib/format';
+import { memberName, useClinicMembers } from '../lib/team';
 import { useAppointmentsModal } from '../context/AppointmentsModalContext';
+import { useClinic } from '../context/AuthContext';
 import Modal, { FormActions, FormError, fieldClass, labelClass } from './Modal';
 
 type AppointmentForm = Pick<
   Appointment,
-  'client_id' | 'animal_id' | 'appointment_date' | 'appointment_time' | 'reason_for_visit' | 'status'
+  | 'client_id'
+  | 'animal_id'
+  | 'appointment_date'
+  | 'appointment_time'
+  | 'reason_for_visit'
+  | 'status'
+  | 'care_type'
+  | 'duration_minutes'
+  | 'professional_id'
 >;
+
+const durations = [10, 15, 20, 30, 40, 45, 60, 90, 120, 180, 240];
 
 const emptyForm: AppointmentForm = {
   client_id: '',
@@ -16,6 +28,9 @@ const emptyForm: AppointmentForm = {
   appointment_time: '',
   reason_for_visit: '',
   status: 'Scheduled',
+  care_type: 'Consulta',
+  duration_minutes: 30,
+  professional_id: null,
 };
 
 export default function AppointmentsModal() {
@@ -26,6 +41,7 @@ export default function AppointmentsModal() {
 
 function AppointmentFormModal({ editing }: { editing: Appointment | null }) {
   const { closeModal, notifySaved } = useAppointmentsModal();
+  const members = useClinicMembers(useClinic().id);
   const [clients, setClients] = useState<Client[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [busy, setBusy] = useState(false);
@@ -39,6 +55,9 @@ function AppointmentFormModal({ editing }: { editing: Appointment | null }) {
           appointment_time: editing.appointment_time.slice(0, 5),
           reason_for_visit: editing.reason_for_visit,
           status: editing.status,
+          care_type: editing.care_type,
+          duration_minutes: editing.duration_minutes,
+          professional_id: editing.professional_id,
         }
       : emptyForm
   );
@@ -144,6 +163,53 @@ function AppointmentFormModal({ editing }: { editing: Appointment | null }) {
               onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
               className={fieldClass}
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={labelClass}>Tipo de atendimento</label>
+            <select
+              value={formData.care_type ?? ''}
+              onChange={(e) => setFormData({ ...formData, care_type: e.target.value || null })}
+              className={fieldClass}
+            >
+              <option value="">-</option>
+              {[...new Set([...careTypes, ...(formData.care_type ? [formData.care_type] : [])])].map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Duração</label>
+            <select
+              value={formData.duration_minutes}
+              onChange={(e) => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
+              className={fieldClass}
+            >
+              {[...new Set([...durations, formData.duration_minutes])].sort((a, b) => a - b).map((d) => (
+                <option key={d} value={d}>
+                  {formatMinutes(d)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Profissional</label>
+            <select
+              value={formData.professional_id ?? ''}
+              onChange={(e) => setFormData({ ...formData, professional_id: e.target.value || null })}
+              className={fieldClass}
+            >
+              <option value="">Qualquer / não definido</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {memberName(m)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

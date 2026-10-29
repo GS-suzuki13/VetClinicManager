@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { toISODate } from '../lib/format';
+import { openStatuses, toISODate } from '../lib/format';
 import { useAppointmentsModal } from '../context/AppointmentsModalContext';
 import { PageLoader } from '../components/PageToolbar';
 import AppointmentDetailsModal, { AppointmentWithDetails } from '../components/AppointmentDetailsModal';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export default function Calendar() {
+export default function Calendar({ onOpenRecord }: { onOpenRecord: (animalId: string) => void }) {
   const { savedVersion } = useAppointmentsModal();
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function Calendar() {
       .select('*, clients(*), animals(*)')
       .gte('appointment_date', toISODate(new Date(year, month, 1)))
       .lte('appointment_date', toISODate(new Date(year, month + 1, 0)))
-      .eq('status', 'Scheduled')
+      .in('status', openStatuses)
       .order('appointment_date', { ascending: true })
       .order('appointment_time', { ascending: true });
     if (error) console.error('Erro ao carregar agendamentos:', error);
@@ -166,7 +166,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {details && <AppointmentDetailsModal appointment={details} onClose={() => setDetails(null)} onStatusUpdated={loadAppointments} />}
+      {details && <AppointmentDetailsModal appointment={details} onClose={() => setDetails(null)} onStatusUpdated={loadAppointments} onOpenRecord={onOpenRecord} />}
     </div>
   );
 }

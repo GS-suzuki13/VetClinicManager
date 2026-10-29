@@ -8,4 +8,29 @@
   h3 {
     @apply font-display;
   }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Rolagem sem barra visível (menu lateral: a barra cortava os ícones). */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Quem pede menos movimento no sistema operacional não vê animações. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

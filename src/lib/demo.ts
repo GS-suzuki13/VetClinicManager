@@ -180,6 +180,23 @@ async function seedDemoClinic(clinicId: string) {
         { animal_id: animal('Frajola').id, vaccine_name: 'V5 felina', vaccine_type: 'Polivalente', manufacturer: 'MSD', dose_number: 1, total_doses: 3, application_date: isoDate(-12), next_dose_date: isoDate(9), veterinarian_name: vet },
       ]),
     ),
+    supabase.from('clinical_events').insert(
+      rows([
+        { animal_id: animal('Thor').id, event_type: 'weight', occurred_at: isoDateTime(-200, '10:00'), weight_kg: 29.8 },
+        { animal_id: animal('Thor').id, event_type: 'weight', occurred_at: isoDateTime(-90, '10:00'), weight_kg: 30.6 },
+        { animal_id: animal('Thor').id, event_type: 'weight', occurred_at: isoDateTime(-9, '07:50'), weight_kg: 31.4, content: 'Pesagem pré-cirúrgica.' },
+        { animal_id: animal('Thor').id, event_type: 'vitals', occurred_at: isoDateTime(-9, '07:55'), temperature_c: 38.6, heart_rate: 96, respiratory_rate: 22, body_condition_score: 5, pain_score: 1, content: 'Mucosas normocoradas, TPC < 2s, hidratado.' },
+        { animal_id: animal('Thor').id, event_type: 'alert', occurred_at: isoDateTime(-200, '10:05'), title: 'Alérgico a dipirona', content: 'Reação urticariforme em 2025.' },
+        { animal_id: animal('Thor').id, event_type: 'prescription', occurred_at: isoDateTime(-9, '11:00'), title: 'Receita pós-operatória', content: 'Uso oral:\n1. Meloxicam 2 mg — 1 comprimido a cada 24 horas por 4 dias.\n2. Cefalexina 500 mg — 2 comprimidos a cada 12 horas por 7 dias.' },
+        { animal_id: animal('Thor').id, event_type: 'pathology', occurred_at: isoDateTime(-9, '08:30'), title: 'Lipoma subcutâneo' },
+        { animal_id: animal('Nina').id, event_type: 'weight', occurred_at: isoDateTime(-120, '09:00'), weight_kg: 4.9 },
+        { animal_id: animal('Nina').id, event_type: 'weight', occurred_at: isoDateTime(-60, '09:00'), weight_kg: 4.7 },
+        { animal_id: animal('Nina').id, event_type: 'weight', occurred_at: isoDateTime(-2, '09:30'), weight_kg: 4.4, content: 'Dieta light em andamento.' },
+        { animal_id: animal('Nina').id, event_type: 'vitals', occurred_at: isoDateTime(-2, '09:35'), temperature_c: 38.4, heart_rate: 180, respiratory_rate: 26, body_condition_score: 7, pain_score: 0 },
+        { animal_id: animal('Bidu').id, event_type: 'vitals', occurred_at: isoDateTime(-30, '16:05'), temperature_c: 39.6, heart_rate: 120, respiratory_rate: 28, pain_score: 4, content: 'Dor à manipulação do pavilhão auricular direito.' },
+        { animal_id: animal('Bidu').id, event_type: 'exam', occurred_at: isoDateTime(-30, '16:20'), title: 'Citologia de cerúmen', content: 'Leveduras compatíveis com Malassezia (+++). Sem bactérias.' },
+      ]),
+    ),
     supabase.from('microchips').insert(
       rows([
         { animal_id: animal('Thor').id, code: '982000412345671', manufacturer: 'Allflex', implanted_at: isoDate(-400), implant_site: 'Região escapular esquerda', implanted_by: vet, status: 'active' },
@@ -191,4 +208,51 @@ async function seedDemoClinic(clinicId: string) {
 
   const failed = results.find((r) => r.error);
   if (failed?.error) throw new Error(`dados de exemplo: ${failed.error.message}`);
+
+  // Catálogo, estoque e boxes para as telas de vendas, estoque e internação.
+  const { data: items, error: itemsError } = await supabase
+    .from('catalog_items')
+    .insert(
+      // Mesmas chaves em todas as linhas: no insert em lote o PostgREST manda null para as ausentes.
+      rows([
+        { kind: 'service', name: 'Consulta clínica', category: 'Consultas', price: 180 },
+        { kind: 'service', name: 'Retorno', category: 'Consultas', price: 0 },
+        { kind: 'service', name: 'Aplicação de vacina', category: 'Vacinas', price: 40 },
+        { kind: 'service', name: 'Hemograma completo', category: 'Exames', price: 95, cost: 38 },
+        { kind: 'service', name: 'Diária de internação', category: 'Internação', price: 250 },
+        { kind: 'product', name: 'Vacina V10', category: 'Vacinas', price: 110, cost: 42, track_stock: true, min_stock: 5, barcode: '7891000100103' },
+        { kind: 'product', name: 'Antipulgas comprimido 10-20 kg', category: 'Antiparasitários', price: 89.9, cost: 52, track_stock: true, min_stock: 4 },
+        { kind: 'product', name: 'Ração renal 2 kg', category: 'Rações', price: 129.9, cost: 84, track_stock: true, min_stock: 3 },
+        { kind: 'product', name: 'Meloxicam 2 mg (cx 10)', category: 'Medicamentos', price: 39.9, cost: 18, track_stock: true, min_stock: 2 },
+      ]).map((item) => ({ cost: null, track_stock: false, min_stock: null, barcode: null, ...item })),
+    )
+    .select('id, name, track_stock');
+  if (itemsError) throw new Error(`dados de exemplo: ${itemsError.message}`);
+  const stock: Record<string, [number, number]> = {
+    'Vacina V10': [12, 30],
+    'Antipulgas comprimido 10-20 kg': [3, 200],
+    'Ração renal 2 kg': [6, 120],
+    'Meloxicam 2 mg (cx 10)': [8, 25],
+  };
+  await supabase.from('stock_movements').insert(
+    (items ?? [])
+      .filter((i) => i.track_stock)
+      .map((i) => ({
+        clinic_id: clinicId,
+        item_id: i.id,
+        movement_type: 'purchase',
+        quantity: stock[i.name][0],
+        expires_on: isoDate(stock[i.name][1]),
+        batch: `L${Math.floor(1000 + Math.random() * 9000)}`,
+        supplier: 'Distribuidora Pet Exemplo',
+      })),
+  );
+  await supabase.from('hospital_boxes').insert(
+    rows([
+      { name: 'Canil 1', kind: 'kennel' },
+      { name: 'Canil 2', kind: 'kennel' },
+      { name: 'Gatil 1', kind: 'cattery' },
+      { name: 'Isolamento', kind: 'isolation' },
+    ]),
+  );
 }

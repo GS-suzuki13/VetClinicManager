@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -10,42 +10,62 @@ interface ModalProps {
 
 const widths = { md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: 'sm:max-w-3xl' };
 
-// Base de todos os modais: tela cheia no celular, centralizado a partir de `sm`,
-// conteúdo rolável e fechamento por Esc ou clique fora.
+// Modais abertos (o Esc fecha só o de cima quando há um modal sobre outro).
+const stack: number[] = [];
+let seq = 0;
+
+// Base de todos os modais: folha que sobe da base no celular, janela centralizada
+// a partir de `sm`, conteúdo rolável, fechamento animado por Esc, X ou clique fora.
 export default function Modal({ title, onClose, children, size = 'lg' }: ModalProps) {
+  const [closing, setClosing] = useState(false);
+  const id = useRef(++seq);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+    window.setTimeout(() => onCloseRef.current(), 170);
+  }, []);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const myId = id.current;
+    stack.push(myId);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && stack[stack.length - 1] === myId && requestClose();
     document.addEventListener('keydown', onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      stack.splice(stack.indexOf(myId), 1);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = overflow;
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/50 backdrop-blur-[2px] sm:p-4 ${closing ? 'animate-fade-out' : 'animate-fade-in'}`}
+      onMouseDown={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className={`bg-white w-full ${widths[size]} max-h-[92vh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-xl shadow-xl`}
+        className={`bg-white w-full ${widths[size]} max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-xl shadow-xl pb-[env(safe-area-inset-bottom)] ${
+          closing ? 'animate-sheet-out sm:animate-modal-out' : 'animate-sheet-in sm:animate-modal-in'
+        }`}
       >
-        <div className="flex justify-between items-center gap-4 px-4 py-4 sm:px-6 border-b border-slate-200">
-          <h3 className="text-lg sm:text-xl font-semibold text-slate-800 min-w-0">{title}</h3>
+        <div className="sm:hidden mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-200" aria-hidden="true" />
+        <div className="flex justify-between items-center gap-4 px-4 py-3 sm:py-4 sm:px-6 border-b border-slate-200">
+          <h3 className="text-lg sm:text-xl font-semibold text-slate-800 min-w-0 truncate">{title}</h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Fechar"
             className="p-2 -mr-2 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="overflow-y-auto">{children}</div>
+        <div className="overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
