@@ -296,7 +296,7 @@ O que já temos (React + Vite + Supabase, multi-tenant com RLS): Dashboard, Clie
 ---
 
 ## 9. Observações sobre o estudo
-- A "Clínica Exemplo" é **compartilhada entre todos os trials**: há registros de outros visitantes, inclusive "Teste Claude …" de outras sessões. Por isso navegamos ali só para ler.
+- A "Clínica Exemplo" é **compartilhada entre todos os trials**: há registros de outros visitantes, de outras sessões. Por isso navegamos ali só para ler.
 - **Um registro foi criado sem querer na Clínica Exemplo**: um evento *Atendimento – Consulta Geral* em 29/10/2026 06:20 no animal **Rex (362)** do tutor Adalberto da Silva Junior (108). O próprio app cria o registro ao selecionar o tipo. A exclusão foi bloqueada pela política de permissões desta sessão; quem quiser removê-lo deve abrir o evento e usar **Excluir**.
 - As telas Configuração de vendas, Perfis, Categorias e Mensagens são restritas na clínica exemplo e foram lidas na clínica própria do trial.
 - Não foi possível ver por dentro: Fiscal (sem módulo ativo), Portal SimplesPet, NPS e Site (redirecionam para o upsell), e os passos 2–5 do cadastro de cliente (exigiriam salvar dados). Esses pontos foram complementados pela central de ajuda.
